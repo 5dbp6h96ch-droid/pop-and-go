@@ -32,14 +32,14 @@ $("doSearch").onclick=async()=>{
  const {data:{session}}=await db.auth.getSession();if(!session?.access_token)throw Error("Bitte erneut anmelden");
  const response=await fetch("https://itaoljnqwoiifztjlfyc.supabase.co/functions/v1/popgo-place-search?q="+encodeURIComponent(term),{headers:{Authorization:"Bearer "+session.access_token,apikey:"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV"}});
  const payload=await response.json();if(!response.ok)throw Error(payload.error||"Suche fehlgeschlagen");
- if(!payload.results?.length){list.append(element("p","Keine passenden Orte gefunden. Du kannst die Idee manuell eingeben."));msg("Keine Treffer.");return}
+ if(!payload.results?.length){list.append(element("p","Keine passenden Orte gefunden. Du kannst die Idee manuell eingeben."));msg("Keine Treffer.");$("searchStatus").textContent="Kein Treffer. Angaben bitte manuell prüfen.";showProposalPreview("Ohne Suchtreffer");return}
  for(const p of payload.results){const item=element("div");item.className="item";item.append(element("strong",p.name),element("p",p.address||p.locality||"Keine Adresse"));const b=element("button","Diesen Ort übernehmen");b.type="button";b.onclick=()=>{
  selectedPlace=p;$("siteFields").hidden=false;$("foundAddress").value=p.address||"";$("foundPhone").value=p.phone||"";$("foundEmail").value=p.email||"";$("name").value=p.name||"";$("locality").value=p.locality||"";$("website").value=p.website||"";
  $("selectedData").hidden=false;$("dataSummary").textContent=[p.address,p.phone,p.email,p.website,p.latitude!=null&&p.longitude!=null?"GPS: "+p.latitude+", "+p.longitude:""].filter(Boolean).join(" · ")||"Keine ergänzenden Daten verfügbar";
- msg("Ort übernommen. Bitte prüfen und den Vorschlag einreichen.");$("proposal").scrollIntoView({block:"start",behavior:"smooth"})};
+ showProposalPreview("Treffer übernommen");$("proposalPreview").scrollIntoView({block:"center",behavior:"smooth"})};
  item.append(b);list.append(item)}
- msg(payload.results.length+" Treffer gefunden. Bitte den richtigen auswählen.");
- }catch(error){msg("Ortsrecherche fehlgeschlagen: "+error.message)}finally{button.disabled=false}
+ msg(payload.results.length+" Treffer gefunden. Bitte den richtigen auswählen.");$("searchStatus").textContent=payload.results.length+" mögliche Treffer – bitte passenden Ort auswählen.";
+ }catch(error){msg("Ortsrecherche fehlgeschlagen: "+error.message);$("searchStatus").textContent="Suche derzeit nicht verfügbar. Du kannst den Vorschlag trotzdem einreichen.";showProposalPreview("Ohne Suchtreffer")}finally{button.disabled=false}
 };
 $("enrichSite").onclick=async()=>{
  const website=$("website").value.trim();if(!/^https:\/\//i.test(website)){msg("Bitte zuerst eine gültige HTTPS-Website eintragen.");return}
@@ -69,6 +69,7 @@ function interpretDictation(raw){
  if(/^(ich|wir|man|es)\b/i.test(name))name="";
  return {name:name.slice(0,120),locality,category};
 }
+function showProposalPreview(prefix){$("proposalPreview").hidden=false;$("previewText").textContent=prefix+": "+[$("name").value.trim(),$("locality").value.trim(),$("category").value,$("foundAddress").value.trim(),$("website").value.trim()].filter(Boolean).join(" · ");}
 $("parseDictation").onclick=()=>{
  const raw=$("dictation").value.trim();if(!raw){msg("Bitte zuerst einen Vorschlag diktieren oder eingeben.");return}
  const parsed=interpretDictation(raw);
@@ -79,14 +80,14 @@ $("parseDictation").onclick=()=>{
  const query=[parsed.name||$("name").value.trim(),parsed.locality||$("locality").value.trim()].filter(Boolean).join(" ").trim();
  if(query.length>=3){
   $("searchPlace").value=query.slice(0,100);
-  const details=$("searchPlace").closest("details");if(details)details.open=true;
+  
   msg("Angaben erkannt. Die Ortssuche wird gestartet. Bitte einen passenden Treffer auswählen oder die Felder manuell prüfen.");
-  $("doSearch").click();
+  showProposalPreview("Erkannte Angaben – Treffer noch nicht bestätigt");$("doSearch").click();
  }else{
-  msg("Angaben erkannt. Bitte Name und Ort ergänzen und anschließend die Ortssuche starten.");
+  $("manualDetails").open=true;showProposalPreview("Manuelle Angaben");msg("Bitte Name und Ort ergänzen.");
  }
 };
-$("proposal").onsubmit=async e=>{e.preventDefault();if(!user||profile?.account_status!=="active")return;const row={proposed_name:$("name").value.trim(),proposed_locality:$("locality").value.trim()||"Noch offen",proposed_category:$("category").value,proposed_url:$("website").value.trim(),proposed_note:$("note").value.trim(),submitted_by:user.id,status:"pending",proposed_address:$("foundAddress").value.trim()||selectedPlace?.address||null,proposed_phone:$("foundPhone").value.trim()||selectedPlace?.phone||null,proposed_email:$("foundEmail").value.trim()||selectedPlace?.email||null,proposed_website:selectedPlace?.website||null,proposed_latitude:selectedPlace?.latitude??null,proposed_longitude:selectedPlace?.longitude??null,proposed_source:selectedPlace?.source||null};if(!row.proposed_name)return msg("Bitte mindestens einen Namen eingeben oder aus dem diktierten Text übernehmen.");const {error}=await db.from("suggestions").insert(row);if(error){const feedback=$("proposalStatus");feedback.textContent="Einreichen fehlgeschlagen: "+error.message;feedback.scrollIntoView({block:"center"});return msg(feedback.textContent)}selectedPlace=null;$("selectedData").hidden=true;$("siteFields").hidden=true;$("searchResults").replaceChildren();$("proposal").reset();$("proposalStatus").textContent="Vorschlag eingereicht. Er wartet auf Administratorprüfung.";msg($("proposalStatus").textContent);await listMine();if(profile.is_admin)await listAdmin()};
+$("proposal").onsubmit=async e=>{e.preventDefault();if(!user||profile?.account_status!=="active")return;const row={proposed_name:$("name").value.trim(),proposed_locality:$("locality").value.trim()||"Noch offen",proposed_category:$("category").value,proposed_url:$("website").value.trim(),proposed_note:$("note").value.trim(),submitted_by:user.id,status:"pending",proposed_address:$("foundAddress").value.trim()||selectedPlace?.address||null,proposed_phone:$("foundPhone").value.trim()||selectedPlace?.phone||null,proposed_email:$("foundEmail").value.trim()||selectedPlace?.email||null,proposed_website:selectedPlace?.website||null,proposed_latitude:selectedPlace?.latitude??null,proposed_longitude:selectedPlace?.longitude??null,proposed_source:selectedPlace?.source||null};if(!row.proposed_name){$("manualDetails").open=true;$("name").focus();$("proposalStatus").textContent="Bitte den Namen des Orts ergänzen.";return msg($("proposalStatus").textContent)}const {error}=await db.from("suggestions").insert(row);if(error){const feedback=$("proposalStatus");feedback.textContent="Einreichen fehlgeschlagen: "+error.message;feedback.scrollIntoView({block:"center"});return msg(feedback.textContent)}selectedPlace=null;$("selectedData").hidden=true;$("siteFields").hidden=true;$("searchResults").replaceChildren();$("proposal").reset();$("proposalPreview").hidden=true;$("searchStatus").textContent="";$("proposalStatus").textContent="Vorschlag eingereicht. Er wartet auf Administratorprüfung.";msg($("proposalStatus").textContent);await listMine();if(profile.is_admin)await listAdmin()};
 async function listMine(){const {data,error}=await db.from("suggestions").select("id,proposed_name,proposed_locality,status,submitted_at,review_note").eq("submitted_by",user.id).order("submitted_at",{ascending:false}).limit(50);const list=$("mineList");list.replaceChildren();if(error){line(list,"Fehler",error.message);return}if(!data?.length){list.append(element("p","Noch keine Vorschläge eingereicht."));return}for(const r of data){const article=element("div");article.className="item";article.append(element("strong",r.proposed_name+" · "+r.proposed_locality),element("p","Status: "+({pending:"Zur Prüfung",approved:"Freigegeben",rejected:"Abgelehnt"}[r.status]||r.status)));if(r.review_note)line(article,"Rückmeldung",r.review_note);list.append(article)}}
 function field(form,label,value,name,type="text"){const l=element("label",label);const input=element(type==="textarea"?"textarea":"input");if(type!=="textarea")input.type=type;input.name=name;input.value=esc(value);input.maxLength=type==="textarea"?1500:300;l.append(input);form.append(l);return input}
 async function adminApi(path,body){const {data:{session}}=await db.auth.getSession();if(!session?.access_token)throw Error("Bitte neu anmelden");const response=await fetch("https://itaoljnqwoiifztjlfyc.supabase.co/functions/v1/popgo-admin/"+path,{method:body?"POST":"GET",headers:{"authorization":"Bearer "+session.access_token,"apikey":"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV","content-type":"application/json"},body:body?JSON.stringify(body):undefined});const json=await response.json();if(!response.ok)throw Error(json.error||"Administrationsanfrage fehlgeschlagen");return json}
