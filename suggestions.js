@@ -6,6 +6,15 @@ const msg=t=>$("msg").textContent=t;
 const esc=s=>String(s??"");
 function element(tag,label){const e=document.createElement(tag);if(label!==undefined)e.textContent=label;return e}
 function line(container,label,val){const p=element("p",label+": "+esc(val));container.append(p)}
+function showTab(tab){
+ const active=profile?.account_status==="active",admin=active&&profile?.is_admin;
+ const allowed=tab==="admin"&&admin?"admin":tab==="mine"?"mine":"proposal";
+ $("proposal").hidden=!active||allowed!=="proposal";
+ $("mine").hidden=!active||allowed!=="mine";
+ $("admin").hidden=!admin||allowed!=="admin";
+ for(const [name,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"]]){$(id).setAttribute("aria-selected",String(allowed===name))}
+}
+for(const [tab,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"]])$(id).onclick=()=>showTab(tab);
 async function refresh(){
  const {data:{user:u}}=await db.auth.getUser();user=u;
  $("auth").hidden=!!u;$("logged").hidden=!u;
@@ -16,7 +25,7 @@ async function refresh(){
  const active=profile?.account_status==="active";
  $("pendingAccount").hidden=active;
  $("proposal").hidden=!active;
- $("admin").hidden=!(active&&profile?.is_admin);
+ $("tabNav").hidden=!active;$("tabAdmin").hidden=!(active&&profile?.is_admin);showTab("proposal");
  if(!active)msg("Konto noch nicht freigegeben. Anträge sind erst nach Administratorfreigabe möglich.");
  else msg("Angemeldet als "+u.email);
  await listMine();
@@ -38,7 +47,7 @@ $("doSearch").onclick=async()=>{
  $("selectedData").hidden=false;$("dataSummary").textContent=[p.address,p.phone,p.email,p.website,p.latitude!=null&&p.longitude!=null?"GPS: "+p.latitude+", "+p.longitude:""].filter(Boolean).join(" · ")||"Keine ergänzenden Daten verfügbar";
  showProposalPreview("Treffer übernommen");$("proposalPreview").scrollIntoView({block:"center",behavior:"smooth"})};
  item.append(b);list.append(item)}
- msg(payload.results.length+" Treffer gefunden. Bitte den richtigen auswählen.");$("searchStatus").textContent=payload.results.length+" mögliche Treffer – bitte passenden Ort auswählen.";
+ msg(payload.results.length+" Treffer gefunden. Bitte den richtigen auswählen.");$("searchStatus").textContent=payload.results.length+" mögliche Treffer – passenden Ort antippen.";
  }catch(error){msg("Ortsrecherche fehlgeschlagen: "+error.message);$("searchStatus").textContent="Suche derzeit nicht verfügbar. Du kannst den Vorschlag trotzdem einreichen.";showProposalPreview("Ohne Suchtreffer")}finally{button.disabled=false}
 };
 $("enrichSite").onclick=async()=>{
@@ -87,7 +96,7 @@ $("parseDictation").onclick=()=>{
   $("manualDetails").open=true;showProposalPreview("Manuelle Angaben");msg("Bitte Name und Ort ergänzen.");
  }
 };
-$("proposal").onsubmit=async e=>{e.preventDefault();if(!user||profile?.account_status!=="active")return;const row={proposed_name:$("name").value.trim(),proposed_locality:$("locality").value.trim()||"Noch offen",proposed_category:$("category").value,proposed_url:$("website").value.trim(),proposed_note:$("note").value.trim(),submitted_by:user.id,status:"pending",proposed_address:$("foundAddress").value.trim()||selectedPlace?.address||null,proposed_phone:$("foundPhone").value.trim()||selectedPlace?.phone||null,proposed_email:$("foundEmail").value.trim()||selectedPlace?.email||null,proposed_website:selectedPlace?.website||null,proposed_latitude:selectedPlace?.latitude??null,proposed_longitude:selectedPlace?.longitude??null,proposed_source:selectedPlace?.source||null};if(!row.proposed_name){$("manualDetails").open=true;$("name").focus();$("proposalStatus").textContent="Bitte den Namen des Orts ergänzen.";return msg($("proposalStatus").textContent)}const {error}=await db.from("suggestions").insert(row);if(error){const feedback=$("proposalStatus");feedback.textContent="Einreichen fehlgeschlagen: "+error.message;feedback.scrollIntoView({block:"center"});return msg(feedback.textContent)}selectedPlace=null;$("selectedData").hidden=true;$("siteFields").hidden=true;$("searchResults").replaceChildren();$("proposal").reset();$("proposalPreview").hidden=true;$("searchStatus").textContent="";$("proposalStatus").textContent="Vorschlag eingereicht. Er wartet auf Administratorprüfung.";msg($("proposalStatus").textContent);await listMine();if(profile.is_admin)await listAdmin()};
+$("proposal").onsubmit=async e=>{e.preventDefault();if(!user||profile?.account_status!=="active")return;const row={proposed_name:$("name").value.trim(),proposed_locality:$("locality").value.trim()||"Noch offen",proposed_category:$("category").value,proposed_url:$("website").value.trim(),proposed_note:$("note").value.trim(),submitted_by:user.id,status:"pending",proposed_address:$("foundAddress").value.trim()||selectedPlace?.address||null,proposed_phone:$("foundPhone").value.trim()||selectedPlace?.phone||null,proposed_email:$("foundEmail").value.trim()||selectedPlace?.email||null,proposed_website:selectedPlace?.website||null,proposed_latitude:selectedPlace?.latitude??null,proposed_longitude:selectedPlace?.longitude??null,proposed_source:selectedPlace?.source||null};if(!row.proposed_name){$("manualDetails").open=true;$("name").focus();$("proposalStatus").textContent="Bitte den Namen des Orts ergänzen.";return msg($("proposalStatus").textContent)}const {error}=await db.from("suggestions").insert(row);if(error){const feedback=$("proposalStatus");feedback.textContent="Einreichen fehlgeschlagen: "+error.message;feedback.scrollIntoView({block:"center"});return msg(feedback.textContent)}selectedPlace=null;$("selectedData").hidden=true;$("siteFields").hidden=true;$("searchResults").replaceChildren();$("proposal").reset();$("proposalPreview").hidden=true;$("searchStatus").textContent="";$("proposalStatus").textContent="Eingereicht – wartet auf Prüfung.";msg($("proposalStatus").textContent);await listMine();if(profile.is_admin)await listAdmin()};
 async function listMine(){const {data,error}=await db.from("suggestions").select("id,proposed_name,proposed_locality,status,submitted_at,review_note").eq("submitted_by",user.id).order("submitted_at",{ascending:false}).limit(50);const list=$("mineList");list.replaceChildren();if(error){line(list,"Fehler",error.message);return}if(!data?.length){list.append(element("p","Noch keine Vorschläge eingereicht."));return}for(const r of data){const article=element("div");article.className="item";article.append(element("strong",r.proposed_name+" · "+r.proposed_locality),element("p","Status: "+({pending:"Zur Prüfung",approved:"Freigegeben",rejected:"Abgelehnt"}[r.status]||r.status)));if(r.review_note)line(article,"Rückmeldung",r.review_note);list.append(article)}}
 function field(form,label,value,name,type="text"){const l=element("label",label);const input=element(type==="textarea"?"textarea":"input");if(type!=="textarea")input.type=type;input.name=name;input.value=esc(value);input.maxLength=type==="textarea"?1500:300;l.append(input);form.append(l);return input}
 async function adminApi(path,body){const {data:{session}}=await db.auth.getSession();if(!session?.access_token)throw Error("Bitte neu anmelden");const response=await fetch("https://itaoljnqwoiifztjlfyc.supabase.co/functions/v1/popgo-admin/"+path,{method:body?"POST":"GET",headers:{"authorization":"Bearer "+session.access_token,"apikey":"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV","content-type":"application/json"},body:body?JSON.stringify(body):undefined});const json=await response.json();if(!response.ok)throw Error(json.error||"Administrationsanfrage fehlgeschlagen");return json}
