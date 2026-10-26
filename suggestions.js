@@ -371,6 +371,22 @@ function renderPlacesAdmin(){
  for(const p of items){
   const card=element("div");card.className="item";
   card.append(element("strong",p.name+" · "+p.locality),element("p","Kategorie: "+(adminCategories.find(c=>c.id===p.category_id)?.label||"Nicht zugeordnet")),element("p",p.status==="archived"?"Archiviert":"Fehlt: "+(missingPlace(p).join(", ")||"Keine wesentlichen Angaben")));
+  if(p.status==="published"){
+   const quick=element("div");quick.className="quick-category";
+   const categorySelect=element("select");categorySelect.setAttribute("aria-label","Kategorie für "+p.name);
+   for(const c of [{id:"",label:"Ohne Kategorie"},...adminCategories]){const option=element("option",c.label);option.value=c.id;categorySelect.append(option)}
+   categorySelect.value=p.category_id||"";
+   const result=element("small");result.setAttribute("role","status");
+   categorySelect.onchange=async()=>{
+    categorySelect.disabled=true;result.textContent="Speichern …";
+    try{
+     const updated=await placesApi("update",{id:p.id,fields:{category_id:categorySelect.value||null},expected_updated_at:p.updated_at});
+     Object.assign(p,updated.place);result.textContent="Gespeichert";
+    }catch(error){categorySelect.value=p.category_id||"";result.textContent="Fehler: "+error.message}
+    finally{categorySelect.disabled=false}
+   };
+   quick.append(categorySelect,result);card.append(quick);
+  }
   const action=element("button",p.status==="archived"?"Wiederherstellen":"Bearbeiten");action.type="button";action.className="secondary";card.append(action);
   if(p.status==="archived"){
    action.onclick=()=>confirmPlaceAction(p,"restore",card);box.append(card);continue;
