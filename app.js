@@ -2,6 +2,21 @@
 const API="https://itaoljnqwoiifztjlfyc.supabase.co";
 const KEY="sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV";
 const $=id=>document.getElementById(id);
+
+async function loadPublishedDesign(){
+ try{
+ const response=await fetch(API+"/rest/v1/published_design?select=published",{headers:{apikey:KEY,Accept:"application/json"},cache:"no-store"});
+ if(!response.ok)return;
+ const data=await response.json(),c=data?.[0]?.published;
+ const keys=["background","surface","primary","accent","text","soft","border","nav"];
+ if(!c||keys.some(k=>!/^#[0-9a-f]{6}$/i.test(c[k]||"")))return;
+ const style=document.createElement("style");
+ style.textContent=`body,main{background:${c.background}!important;color:${c.text}!important}:root{--violet:${c.primary};--lime:${c.accent};--lavender:${c.soft};--ink:${c.text}}header,#start{background:linear-gradient(125deg,${c.primary},${c.primary}dd)!important}.card,.filter-row{background:${c.surface}!important;border-color:${c.border}!important}.chips button:not(.active),.searchline select,#showMap{background:${c.soft}!important}.chips button.active{background:${c.primary}!important}.discover-actions #random,.card-footer a:first-child,.bottom-nav #navNew .nav-icon,#startDiscover{background:${c.accent}!important}.bottom-nav{background:${c.nav}!important}`;
+ document.head.append(style);
+ }catch(error){console.warn("Design-Einstellungen nicht geladen",error)}
+}
+loadPublishedDesign();
+
 let places=[],categories=[],category="Alle",search="",sort="asc",selectedLocality="",radius="",map=null;
 let favorites;try{favorites=new Set(JSON.parse(localStorage.getItem("popgo-favorites-v1")||"[]"))}catch{favorites=new Set()}
 const node=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==null)e.textContent=text;if(cls)e.className=cls;return e};
