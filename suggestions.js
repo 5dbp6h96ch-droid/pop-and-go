@@ -179,6 +179,33 @@ async function listAdmin(){const box=$("adminList");box.replaceChildren();const 
    }catch(e){results.replaceChildren();results.append(element("p","Suche nicht verfügbar: "+e.message+". Karte kann manuell genutzt werden."))}
    finally{searchButton.disabled=false}
  };
+ const addressButton=element("button","Koordinaten aus Adresse ermitteln");addressButton.type="button";addressButton.className="secondary";
+ const addressResults=element("div");addressResults.setAttribute("aria-live","polite");form.append(addressButton,addressResults);
+ addressButton.onclick=async()=>{
+  const address=fields.edited_address.value.trim();
+  if(address.length<5){msg("Bitte zuerst eine vollständige Adresse eingeben.");return}
+  addressButton.disabled=true;addressResults.replaceChildren(element("p","Suche nach der Adresse …"));
+  try{
+   const {data:{session}}=await db.auth.getSession();if(!session?.access_token)throw Error("Bitte neu anmelden.");
+   const query=[address,fields.edited_locality.value.trim()].filter(Boolean).join(", ");
+   const response=await fetch("https://itaoljnqwoiifztjlfyc.supabase.co/functions/v1/popgo-place-search?q="+encodeURIComponent(query),{headers:{authorization:"Bearer "+session.access_token,apikey:"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV"}});
+   const payload=await response.json();if(!response.ok)throw Error(payload.error||"Adresssuche fehlgeschlagen");
+   addressResults.replaceChildren();
+   const items=(payload.results||[]).filter(p=>p.latitude!=null&&p.longitude!=null);
+   if(!items.length){addressResults.append(element("p","Kein eindeutiger Adresstreffer. Bitte Standort manuell auf Karte wählen."));return}
+   addressResults.append(element("small","Bitte den passenden Standort prüfen und ausdrücklich übernehmen."));
+   for(const p of items){
+    const row=element("div");row.className="item";
+    row.append(element("strong",p.address||p.name||"Adressvorschlag"));
+    const preview=element("button","Auf Karte prüfen");preview.type="button";preview.className="secondary";
+    const confirm=element("button","Diese Koordinaten übernehmen");confirm.type="button";
+    preview.onclick=()=>{mapControls.hidden=false;mapButton.textContent="Standortsuche schließen";openMap();if(map){map.setView([Number(p.latitude),Number(p.longitude)],17);if(marker)marker.setLatLng([Number(p.latitude),Number(p.longitude)]);else marker=L.marker([Number(p.latitude),Number(p.longitude)]).addTo(map)}};
+    confirm.onclick=()=>{mapControls.hidden=false;mapButton.textContent="Standortsuche schließen";openMap();placeMarker(p.latitude,p.longitude);msg("Koordinaten in die Felder übernommen. Zum dauerhaften Speichern bitte Änderungen speichern.")};
+    row.append(preview,confirm);addressResults.append(row);
+   }
+  }catch(error){addressResults.replaceChildren(element("p","Adresssuche fehlgeschlagen: "+error.message))}
+  finally{addressButton.disabled=false}
+ };
  const save=element("button","Änderungen speichern"),approve=element("button","Prüfen und freigeben"),reject=element("button","Ablehnen");approve.type=reject.type=save.type="button";reject.className="secondary";form.append(save,approve,reject);
  async function saveDraft(){const edits={};for(const [k,input] of Object.entries(fields)){let value=input.value.trim();if(k==="edited_latitude"||k==="edited_longitude"){if(value!==""&&!Number.isFinite(Number(value)))throw Error("Ungültige Koordinate");edits[k]=value===""?null:Number(value)}else edits[k]=value||null}const {error}=await db.from("suggestions").update(edits).eq("id",r.id).eq("status","pending");if(error)throw Error(error.message)}
  save.onclick=async()=>{try{await saveDraft();msg("Änderungen gespeichert.")}catch(e){msg("Speichern fehlgeschlagen: "+e.message)}};
