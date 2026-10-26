@@ -26,7 +26,7 @@ async function refresh(){
  const active=profile?.account_status==="active";
  $("pendingAccount").hidden=active;
  $("proposal").hidden=!active;
- $("tabNav").hidden=!adminMode||!active;$("tabProposal").hidden=adminMode;$("tabMine").hidden=!adminMode;$("tabAdmin").hidden=!(adminMode&&active&&profile?.is_admin);$("tabDesign").hidden=!(adminMode&&active&&profile?.is_admin);$("tabPlaces").hidden=!(adminMode&&active&&profile?.is_admin);$("tabCategories").hidden=!(adminMode&&active&&profile?.is_admin);showTab(adminMode?"admin":"proposal");
+ $("tabNav").hidden=!adminMode||!active;$("tabProposal").hidden=adminMode;$("tabMine").hidden=!adminMode;$("tabAdmin").hidden=!(adminMode&&active&&profile?.is_admin);$("tabDesign").hidden=!(adminMode&&active&&profile?.is_admin);$("tabPlaces").hidden=!(adminMode&&active&&profile?.is_admin);$("tabCategories").hidden=!(adminMode&&active&&profile?.is_admin);showTab(adminMode?(new URLSearchParams(location.search).get("tab")==="categories"?"categories":new URLSearchParams(location.search).get("tab")==="places"?"places":"admin"):"proposal");if(adminMode&&profile?.is_admin&&new URLSearchParams(location.search).get("tab")==="places")loadPlacesAdmin().catch(e=>$("placesSummary").textContent=e.message);if(adminMode&&profile?.is_admin&&new URLSearchParams(location.search).get("tab")==="categories")loadPlacesAdmin().catch(e=>$("categoryAdminStatus").textContent=e.message);
  if(!active)msg("Konto noch nicht freigegeben. Anträge sind erst nach Administratorfreigabe möglich.");
  else msg(adminMode&&!profile?.is_admin?"Dieser Verwaltungsbereich ist ausschließlich für Administratoren zugänglich.":"Angemeldet als "+u.email);
  if(adminMode)await listMine();
