@@ -10,15 +10,15 @@
   "theme_color": "#7135F4",
   "icons": [
     {
-      "src": "app-icon-original.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "app-icon-original.jpg",
-      "sizes": "128x128",
-      "type": "image/jpeg",
+      "src": "app-icon-original.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any"
     }
   ]
