@@ -399,7 +399,7 @@ function renderPlacesAdmin(){
      const result=await response.json();if(!response.ok)throw Error(result.error||"Suche fehlgeschlagen");
      addressMatches.replaceChildren();
      if(!result.results?.length){addressMatches.append(element("p","Keine passenden Adressen. Bitte manuell ergänzen."));return}
-     const norm=t=>String(t||"").toLocaleLowerCase("de").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
+     const norm=t=>String(t||"").toLocaleLowerCase("de").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
      const significant=norm(fields.name.value).split(" ").filter(w=>w.length>=3&&!["restaurant","cafe","bar","gasthaus","hotel","zum","zur","der","die","das"].includes(w));
      const town=norm(fields.locality.value);
      const matches=(result.results||[]).filter(hit=>{
