@@ -76,7 +76,15 @@ $("parseDictation").onclick=()=>{
  if(parsed.locality&&!$("locality").value.trim())$("locality").value=parsed.locality;
  if(parsed.category!=="Sonstiges")$("category").value=parsed.category;
  if(!$("note").value.trim())$("note").value=raw.slice(0,1000);
- msg("Angaben soweit erkannt. Bitte Name und Ort prüfen oder ergänzen. Der vollständige diktierte Text bleibt als Notiz erhalten.");
+ const query=[parsed.name||$("name").value.trim(),parsed.locality||$("locality").value.trim()].filter(Boolean).join(" ").trim();
+ if(query.length>=3){
+  $("searchPlace").value=query.slice(0,100);
+  const details=$("searchPlace").closest("details");if(details)details.open=true;
+  msg("Angaben erkannt. Die Ortssuche wird gestartet. Bitte einen passenden Treffer auswählen oder die Felder manuell prüfen.");
+  $("doSearch").click();
+ }else{
+  msg("Angaben erkannt. Bitte Name und Ort ergänzen und anschließend die Ortssuche starten.");
+ }
 };
 $("proposal").onsubmit=async e=>{e.preventDefault();if(!user||profile?.account_status!=="active")return;const row={proposed_name:$("name").value.trim(),proposed_locality:$("locality").value.trim()||"Noch offen",proposed_category:$("category").value,proposed_url:$("website").value.trim(),proposed_note:$("note").value.trim(),submitted_by:user.id,status:"pending",proposed_address:$("foundAddress").value.trim()||selectedPlace?.address||null,proposed_phone:$("foundPhone").value.trim()||selectedPlace?.phone||null,proposed_email:$("foundEmail").value.trim()||selectedPlace?.email||null,proposed_website:selectedPlace?.website||null,proposed_latitude:selectedPlace?.latitude??null,proposed_longitude:selectedPlace?.longitude??null,proposed_source:selectedPlace?.source||null};if(!row.proposed_name)return msg("Bitte mindestens einen Namen eingeben oder aus dem diktierten Text übernehmen.");const {error}=await db.from("suggestions").insert(row);if(error){const feedback=$("proposalStatus");feedback.textContent="Einreichen fehlgeschlagen: "+error.message;feedback.scrollIntoView({block:"center"});return msg(feedback.textContent)}selectedPlace=null;$("selectedData").hidden=true;$("siteFields").hidden=true;$("searchResults").replaceChildren();$("proposal").reset();$("proposalStatus").textContent="Vorschlag eingereicht. Er wartet auf Administratorprüfung.";msg($("proposalStatus").textContent);await listMine();if(profile.is_admin)await listAdmin()};
 async function listMine(){const {data,error}=await db.from("suggestions").select("id,proposed_name,proposed_locality,status,submitted_at,review_note").eq("submitted_by",user.id).order("submitted_at",{ascending:false}).limit(50);const list=$("mineList");list.replaceChildren();if(error){line(list,"Fehler",error.message);return}if(!data?.length){list.append(element("p","Noch keine Vorschläge eingereicht."));return}for(const r of data){const article=element("div");article.className="item";article.append(element("strong",r.proposed_name+" · "+r.proposed_locality),element("p","Status: "+({pending:"Zur Prüfung",approved:"Freigegeben",rejected:"Abgelehnt"}[r.status]||r.status)));if(r.review_note)line(article,"Rückmeldung",r.review_note);list.append(article)}}
