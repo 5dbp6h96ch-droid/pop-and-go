@@ -14,7 +14,7 @@ function showTab(tab){
  $("admin").hidden=!admin||allowed!=="admin";$("design").hidden=!admin||allowed!=="design";
  for(const [name,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"],["design","tabDesign"]]){$(id).setAttribute("aria-selected",String(allowed===name))}
 }
-for(const [tab,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"]])$(id).onclick=()=>showTab(tab);
+for(const [tab,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"],["design","tabDesign"]])$(id).onclick=()=>{showTab(tab);if(tab==="design")openDesignStudio()};
 async function refresh(){
  const {data:{user:u}}=await db.auth.getUser();user=u;
  $("auth").hidden=!!u;$("logged").hidden=!u;
@@ -315,9 +315,18 @@ function renderDesignFields(){
  }
  renderDesignPreview();
 }
-$("tabDesign").addEventListener("click",async()=>{showTab("design");
- try{const result=await designApi("get");designDraft={...designDefaults,...result.draft};designHasPrevious=result.has_previous;renderDesignFields();$("designMessage").textContent="Privater Entwurf geladen."}catch(e){$("designMessage").textContent=e.message}
-});
+async function openDesignStudio(){
+ showTab("design");
+ renderDesignFields();
+ $("designMessage").textContent="Designstudio geöffnet. Gespeicherter Entwurf wird geladen …";
+ try{
+  const result=await designApi("get");
+  designDraft={...designDefaults,...result.draft};
+  designHasPrevious=!!result.has_previous;
+  renderDesignFields();
+  $("designMessage").textContent="Privater Entwurf geladen.";
+ }catch(e){$("designMessage").textContent="Designstudio geöffnet, aber Entwurf konnte nicht geladen werden: "+e.message}
+}
 $("designSave").onclick=async()=>{try{await designApi("save",designDraft);designArmed=false;$("designMessage").textContent="Entwurf privat gespeichert. Öffentliches Design unverändert."}catch(e){$("designMessage").textContent=e.message}};
 $("designPublish").onclick=async()=>{
  if(!designArmed){designArmed=true;$("designPublish").textContent="Veröffentlichung bestätigen";$("designMessage").textContent="Zuerst den Entwurf speichern. Dann erneut bestätigen.";return}
