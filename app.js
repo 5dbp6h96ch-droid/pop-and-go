@@ -10,7 +10,7 @@ function validGps(p){return p.latitude!=null&&p.longitude!=null&&Number.isFinite
 function originCoords(){const matches=places.filter(p=>p.locality===selectedLocality&&validGps(p));if(!matches.length)return null;return [matches.reduce((v,p)=>v+Number(p.latitude),0)/matches.length,matches.reduce((v,p)=>v+Number(p.longitude),0)/matches.length]}
 function current(){
  const q=search.toLocaleLowerCase("de"),center=radius&&selectedLocality?originCoords():null;
- return places.filter(p=>(category==="Alle"||p.categories?.label===category)&&(!selectedLocality||p.locality===selectedLocality)&&[p.name,p.locality,p.notes||"",p.categories?.label||""].join(" ").toLocaleLowerCase("de").includes(q)&&(!radius||(center&&validGps(p)&&distanceKm(center[0],center[1],Number(p.latitude),Number(p.longitude))<=Number(radius))))
+ return places.filter(p=>(category==="Alle"||p.categories?.label===category)&&(radius||!selectedLocality||p.locality===selectedLocality)&&[p.name,p.locality,p.notes||"",p.categories?.label||""].join(" ").toLocaleLowerCase("de").includes(q)&&(!radius||(center&&validGps(p)&&distanceKm(center[0],center[1],Number(p.latitude),Number(p.longitude))<=Number(radius))))
  .sort((a,b)=>sort==="locality"?(a.locality||"").localeCompare(b.locality||"","de")||a.name.localeCompare(b.name,"de"):(sort==="asc"?1:-1)*a.name.localeCompare(b.name,"de"))
 }
 function link(url,text,cls){const a=node("a",text,cls);a.href=url;a.target="_blank";a.rel="noopener noreferrer";return a}
