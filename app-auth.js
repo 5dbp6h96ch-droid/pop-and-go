@@ -27,5 +27,5 @@ document.getElementById("appSignup").onclick=async()=>{
 };
 document.getElementById("switchAccount").onclick=async()=>{await authClient.auth.signOut();document.getElementById("appNotice").textContent="Du kannst dich jetzt mit einem anderen Konto anmelden.";document.getElementById("appPassword").value=""};
 document.getElementById("appLogout").onclick=async()=>{await authClient.auth.signOut();document.getElementById("newFrame").src="about:blank";document.getElementById("adminFrame").src="about:blank";location.reload()};
-document.getElementById("openAdmin").onclick=()=>{document.querySelectorAll("main section").forEach(s=>s.hidden=s.id!=="adminSection");document.getElementById("adminFrame").src="vorschlagen.html?mode=admin&embedded=1&v=35"};
+document.getElementById("openAdmin").onclick=()=>{document.querySelectorAll("main section").forEach(s=>s.hidden=s.id!=="adminSection");document.getElementById("adminFrame").src="vorschlagen.html?mode=admin&embedded=1&v=44"};
 syncAppAuth().catch(error=>{document.getElementById("appNotice").textContent="Anmeldung konnte nicht geprüft werden: "+error.message});
