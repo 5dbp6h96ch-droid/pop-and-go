@@ -15,7 +15,7 @@ function showTab(tab){
  $("admin").hidden=!adminMode||!admin||allowed!=="admin";$("design").hidden=!adminMode||!admin||allowed!=="design";$("placesAdmin").hidden=!adminMode||!admin||allowed!=="places";$("categoryAdmin").hidden=!adminMode||!admin||allowed!=="categories";
  for(const [name,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"],["design","tabDesign"],["places","tabPlaces"],["categories","tabCategories"]]){$(id).setAttribute("aria-selected",String(allowed===name))}
 }
-for(const [tab,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"],["design","tabDesign"],["places","tabPlaces"]])$(id).onclick=()=>{showTab(tab);if(tab==="design")openDesignStudio();if(tab==="categories"){loadPlacesAdmin().then(()=>$("categoryAdmin").scrollIntoView({block:"start"})).catch(e=>$("categoryAdminStatus").textContent=e.message)}if(tab==="places"){ $("placesSummary").textContent="Eintragsverwaltung wird geöffnet …";loadPlacesAdmin().catch(e=>$("placesSummary").textContent="Fehler: "+e.message) }};
+for(const [tab,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"],["design","tabDesign"],["places","tabPlaces"],["categories","tabCategories"]])$(id).onclick=()=>{showTab(tab);if(tab==="design")openDesignStudio();if(tab==="categories"){loadPlacesAdmin().then(()=>$("categoryAdmin").scrollIntoView({block:"start"})).catch(e=>$("categoryAdminStatus").textContent=e.message)}if(tab==="places"){ $("placesSummary").textContent="Eintragsverwaltung wird geöffnet …";loadPlacesAdmin().catch(e=>$("placesSummary").textContent="Fehler: "+e.message) }};
 async function refresh(){
  const {data:{user:u}}=await db.auth.getUser();user=u;
  $("auth").hidden=!!u;$("logged").hidden=!u;
