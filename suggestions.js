@@ -8,11 +8,11 @@ function element(tag,label){const e=document.createElement(tag);if(label!==undef
 function line(container,label,val){const p=element("p",label+": "+esc(val));container.append(p)}
 function showTab(tab){
  const active=profile?.account_status==="active",admin=active&&profile?.is_admin;
- const allowed=tab==="admin"&&admin?"admin":tab==="mine"?"mine":"proposal";
+ const allowed=(tab==="admin"||tab==="design")&&admin?tab:tab==="mine"?"mine":"proposal";
  $("proposal").hidden=!active||allowed!=="proposal";
  $("mine").hidden=!active||allowed!=="mine";
- $("admin").hidden=!admin||allowed!=="admin";
- for(const [name,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"]]){$(id).setAttribute("aria-selected",String(allowed===name))}
+ $("admin").hidden=!admin||allowed!=="admin";$("design").hidden=!admin||allowed!=="design";
+ for(const [name,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"],["design","tabDesign"]]){$(id).setAttribute("aria-selected",String(allowed===name))}
 }
 for(const [tab,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"]])$(id).onclick=()=>showTab(tab);
 async function refresh(){
@@ -25,7 +25,7 @@ async function refresh(){
  const active=profile?.account_status==="active";
  $("pendingAccount").hidden=active;
  $("proposal").hidden=!active;
- $("tabNav").hidden=!active;$("tabAdmin").hidden=!(active&&profile?.is_admin);showTab("proposal");
+ $("tabNav").hidden=!active;$("tabAdmin").hidden=!(active&&profile?.is_admin);$("tabDesign").hidden=!(active&&profile?.is_admin);showTab("proposal");
  if(!active)msg("Konto noch nicht freigegeben. Anträge sind erst nach Administratorfreigabe möglich.");
  else msg("Angemeldet als "+u.email);
  await listMine();
@@ -282,4 +282,47 @@ async function listAdmin(){const box=$("adminList");box.replaceChildren();const 
  };
  box.append(form)}}
 async function listMembers(){const box=$("membersList");if(!box)return;box.replaceChildren();try{const {members}=await adminApi("members");const activeRequests=members.filter(m=>m.account_status==="pending");if(!activeRequests.length){box.append(element("p","Keine offenen Registrierungsanträge."));return}for(const m of activeRequests){const row=element("div");row.className="item";row.append(element("strong",m.email||m.user_id));const accept=element("button","Konto freigeben"),deny=element("button","Ablehnen");deny.className="secondary";accept.type=deny.type="button";accept.onclick=async()=>{if(!confirm("Dieses Mitglied freigeben?"))return;try{await adminApi("member",{id:m.user_id,status:"active"});msg("Mitglied freigegeben.");await listMembers()}catch(e){msg(e.message)}};deny.onclick=async()=>{if(!confirm("Diesen Registrierungsantrag ablehnen?"))return;try{await adminApi("member",{id:m.user_id,status:"rejected"});msg("Registrierungsantrag abgelehnt.");await listMembers()}catch(e){msg(e.message)}};row.append(accept,deny);box.append(row)}}catch(e){msg("Mitglieder konnten nicht geladen werden: "+e.message)}}
+
+const designDefaults={background:"#F2F1EE",surface:"#FFFFFF",primary:"#7135F4",accent:"#D9FF38",text:"#24163C",soft:"#F0EAFF",border:"#DDD8E4",nav:"#FFFFFF"};
+const designLabels={background:"App-Hintergrund",surface:"Kacheln und Flächen",primary:"Hauptfarbe",accent:"Aktionsfarbe",text:"Textfarbe",soft:"Filterfarbe",border:"Rahmen",nav:"Navigation"};
+let designDraft={...designDefaults},designHasPrevious=false,designArmed=false;
+async function designApi(action,colors){
+ const {data:{session}}=await db.auth.getSession();if(!session?.access_token)throw Error("Bitte neu anmelden");
+ const response=await fetch("https://itaoljnqwoiifztjlfyc.supabase.co/functions/v1/popgo-design-studio",{method:"POST",headers:{authorization:"Bearer "+session.access_token,apikey:"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV","content-type":"application/json"},body:JSON.stringify({action,colors})});
+ const result=await response.json();if(!response.ok)throw Error(result.error||"Designanfrage fehlgeschlagen");return result;
+}
+function renderDesignPreview(){
+ const c=designDraft,box=$("designPreview");box.replaceChildren();
+ const hero=element("div");hero.style.cssText="padding:17px;border-radius:16px;color:white;background:"+c.primary;
+ hero.append(element("strong","raus & guggen"),element("p","Deine Ideen fürs nächste Erlebnis"));
+ const actions=element("div");actions.style.cssText="padding:14px;margin:10px 0;border-radius:15px;background:"+c.background;
+ const pill=element("div","Überrasch mich!");pill.style.cssText="padding:10px;border-radius:18px;font-weight:700;text-align:center;background:"+c.accent+";color:"+c.text;actions.append(pill);
+ const card=element("div");card.style.cssText="padding:14px;border:1px solid "+c.border+";border-radius:15px;background:"+c.surface+";color:"+c.text;
+ card.append(element("strong","Beispiel-Restaurant"),element("p","Heidelberg · Restaurant"));
+ const nav=element("div","Start  ·  Entdecken  ·  Neu  ·  Favoriten  ·  Mehr");nav.style.cssText="padding:12px;border-radius:12px;text-align:center;background:"+c.nav+";color:"+c.text;
+ box.append(hero,actions,card,nav);
+}
+function renderDesignFields(){
+ const container=$("designColors");container.replaceChildren();
+ for(const [key,label] of Object.entries(designLabels)){
+  const row=element("div");row.style.cssText="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px";
+  const title=element("label",label);title.style.flex="1";
+  const picker=element("input");picker.type="color";picker.value=designDraft[key];picker.style.cssText="width:56px;height:42px;padding:3px;margin:0";
+  const hex=element("input");hex.type="text";hex.value=designDraft[key];hex.maxLength=7;hex.style.cssText="width:112px;margin:0";
+  picker.oninput=()=>{designDraft[key]=picker.value.toUpperCase();hex.value=designDraft[key];renderDesignPreview()};
+  hex.onchange=()=>{if(/^#[0-9a-f]{6}$/i.test(hex.value)){designDraft[key]=hex.value.toUpperCase();picker.value=hex.value;renderDesignPreview()}else hex.value=designDraft[key]};
+  row.append(title,picker,hex);container.append(row);
+ }
+ renderDesignPreview();
+}
+$("tabDesign").addEventListener("click",async()=>{
+ try{const result=await designApi("get");designDraft={...designDefaults,...result.draft};designHasPrevious=result.has_previous;renderDesignFields();$("designMessage").textContent="Privater Entwurf geladen."}catch(e){$("designMessage").textContent=e.message}
+});
+$("designSave").onclick=async()=>{try{await designApi("save",designDraft);designArmed=false;$("designMessage").textContent="Entwurf privat gespeichert. Öffentliches Design unverändert."}catch(e){$("designMessage").textContent=e.message}};
+$("designPublish").onclick=async()=>{
+ if(!designArmed){designArmed=true;$("designPublish").textContent="Veröffentlichung bestätigen";$("designMessage").textContent="Zuerst den Entwurf speichern. Dann erneut bestätigen.";return}
+ try{await designApi("save",designDraft);await designApi("publish");designArmed=false;$("designPublish").textContent="Design veröffentlichen";designHasPrevious=true;$("designMessage").textContent="Design veröffentlicht. Nach Neuladen für alle sichtbar."}catch(e){$("designMessage").textContent=e.message}
+};
+$("designRestore").onclick=async()=>{if(!designHasPrevious){$("designMessage").textContent="Noch keine frühere Version vorhanden.";return}try{await designApi("restore");const result=await designApi("get");designDraft={...designDefaults,...result.draft};renderDesignFields();$("designMessage").textContent="Vorheriges Design wiederhergestellt."}catch(e){$("designMessage").textContent=e.message}};
+
 refresh().catch(e=>msg(e.message));
