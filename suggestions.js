@@ -174,6 +174,26 @@ async function listAdmin(){const box=$("adminList");box.replaceChildren();const 
        choose.disabled=!hasGPS;
        if(hasGPS)choose.onclick=()=>{openMap();placeMarker(p.latitude,p.longitude)};
        else row.append(element("small","Keine Koordinaten vorhanden – Punkt auf Karte setzen."));
+       const websiteButton=element("button","Offizielle Website ermitteln");websiteButton.type="button";websiteButton.className="secondary";
+       const websiteFeedback=element("p");row.append(websiteButton,websiteFeedback);
+       websiteButton.onclick=async()=>{
+         websiteButton.disabled=true;websiteFeedback.textContent="Website wird geprüft …";
+         try{
+           let address=p.website||"";
+           if(!address){
+             const {data:{session}}=await db.auth.getSession();
+             if(!session?.access_token)throw Error("Bitte neu anmelden.");
+             const response=await fetch("https://itaoljnqwoiifztjlfyc.supabase.co/functions/v1/popgo-website-lookup",{method:"POST",headers:{authorization:"Bearer "+session.access_token,apikey:"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV","content-type":"application/json"},body:JSON.stringify({osm_id:p.osm_id,osm_type:p.osm_type})});
+             const payload=await response.json();if(!response.ok)throw Error(payload.error||"Website-Suche fehlgeschlagen");
+             address=payload.website||"";
+           }
+           if(!address){websiteFeedback.textContent="Für diesen Treffer ist keine Website in den Ortsdaten hinterlegt.";return}
+           const u=new URL(address);if(u.protocol!=="https:")throw Error("Nur HTTPS-Adressen werden übernommen.");
+           websiteFeedback.replaceChildren(element("span","Gefundene Website: "),element("strong",address));
+           const link=element("a"," Website prüfen ↗");link.href=address;link.target="_blank";link.rel="noopener noreferrer";websiteFeedback.append(link);
+           const apply=element("button","Diese Website übernehmen");apply.type="button";apply.onclick=()=>{fields.edited_website.value=address;websiteFeedback.append(element("small"," Website-Feld ausgefüllt. Bitte speichern."));apply.disabled=true};row.append(apply);
+         }catch(error){websiteFeedback.textContent="Website-Ermittlung: "+error.message}finally{websiteButton.disabled=false}
+       };
        row.append(choose);results.append(row);
      }
    }catch(e){results.replaceChildren();results.append(element("p","Suche nicht verfügbar: "+e.message+". Karte kann manuell genutzt werden."))}
