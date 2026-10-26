@@ -100,6 +100,7 @@ async function listAdmin(){const box=$("adminList");box.replaceChildren();const 
      const matching=[["edited_name","Name","name"],["edited_address","Adresse","address"],["edited_phone","Telefon","phone"],["edited_email","E-Mail","email"]];
      let found=0;
      for(const [,label,key] of matching){if(scanData[key]){line(scanBox,label,scanData[key]);found++}}
+     const checked=Array.isArray(body.pages_checked)?body.pages_checked:[];if(checked.length){const sources=element("div");sources.append(element("small","Geprüfte Seiten:"));for(const u of checked){const p=element("p");const link=element("a",u);link.href=u;link.target="_blank";link.rel="noopener noreferrer";p.append(link);sources.append(p)}scanBox.append(sources)}
      if(!found){scanBox.append(element("p","Keine zusätzlichen Kontaktdaten ermittelt."));return}
      const apply=element("button","Gefundene Daten übernehmen");apply.type="button";
      apply.onclick=()=>{
