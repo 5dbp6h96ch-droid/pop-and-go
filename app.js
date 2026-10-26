@@ -46,6 +46,7 @@ $("showMap").onclick=()=>{
  window.scrollTo({top:0,behavior:"instant"});
  setTimeout(()=>{try{drawMap()}catch(error){$("mapCount").textContent="Karte konnte nicht geöffnet werden: "+error.message}},100);
 };
+$("backDiscover").onclick=()=>document.querySelector('[data-view="discover"]')?.click();
 $("navNew").onclick=()=>{window.location.href="vorschlagen.html"};
 $("startDiscover").onclick=()=>document.querySelector('[data-view="discover"]')?.click();
 $("random").onclick=()=>{const results=current();if(!results.length)return;const p=results[Math.floor(Math.random()*results.length)];$("randomResult").textContent="Zufallstipp: "+p.name+" · "+(p.locality||"");$("status").textContent="Zufallsvorschlag: "+p.name+" · "+p.locality;const target=document.querySelector("#cards .card");if(target){const chosen=Array.from($("cards").children).find(e=>e.querySelector("h3")?.textContent===p.name);if(chosen){chosen.scrollIntoView({behavior:"smooth",block:"center"});chosen.style.outline="3px solid #7040ee";setTimeout(()=>chosen.style.outline="",1700)}}};
