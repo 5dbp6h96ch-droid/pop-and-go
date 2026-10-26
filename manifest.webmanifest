@@ -1,0 +1,19 @@
+{
+  "id": "/pop-and-go/",
+  "name": "raus & guggen",
+  "short_name": "raus & guggen",
+  "description": "Deine Freizeitideen entdecken und teilen",
+  "start_url": "/pop-and-go/",
+  "scope": "/pop-and-go/",
+  "display": "standalone",
+  "background_color": "#F2F1EE",
+  "theme_color": "#7135F4",
+  "icons": [
+    {
+      "src": "app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
