@@ -15,7 +15,7 @@ function showTab(tab){
  $("admin").hidden=!adminMode||!admin||allowed!=="admin";$("design").hidden=!adminMode||!admin||allowed!=="design";$("placesAdmin").hidden=!adminMode||!admin||allowed!=="places";
  for(const [name,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"],["design","tabDesign"],["places","tabPlaces"]]){$(id).setAttribute("aria-selected",String(allowed===name))}
 }
-for(const [tab,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"],["design","tabDesign"]])$(id).onclick=()=>{showTab(tab);if(tab==="design")openDesignStudio();if(tab==="places")loadPlacesAdmin()};
+for(const [tab,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"],["design","tabDesign"],["places","tabPlaces"]])$(id).onclick=()=>{showTab(tab);if(tab==="design")openDesignStudio();if(tab==="places")loadPlacesAdmin()};
 async function refresh(){
  const {data:{user:u}}=await db.auth.getUser();user=u;
  $("auth").hidden=!!u;$("logged").hidden=!u;
