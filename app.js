@@ -11,7 +11,7 @@ async function loadPublishedDesign(){
  const keys=["background","surface","primary","accent","text","soft","border","nav"];
  if(!c||keys.some(k=>!/^#[0-9a-f]{6}$/i.test(c[k]||"")))return;
  const style=document.createElement("style");
- style.textContent=`body,main{background:${c.background}!important;color:${c.text}!important}:root{--violet:${c.primary};--lime:${c.accent};--lavender:${c.soft};--ink:${c.text}}header,#start{background:${c.primary}!important}.card,.filter-row{background:${c.surface}!important;border-color:${c.border}!important}.chips button:not(.active),.searchline select,#showMap{background:${c.soft}!important}.chips button.active{background:${c.primary}!important}.discover-actions #random,.card-footer a:first-child,.bottom-nav #navNew .nav-icon,#startDiscover{background:${c.accent}!important}.bottom-nav{background:${c.nav}!important}`;
+ style.textContent=`body,main{background:${c.background}!important;color:${c.text}!important}:root{--violet:${c.primary};--lime:${c.accent};--lavender:${c.soft};--ink:${c.text}}header,#startIntro{background:${c.primary}!important}.card,.filter-row{background:${c.surface}!important;border-color:${c.border}!important}.chips button:not(.active),.searchline select,#showMap{background:${c.soft}!important}.chips button.active{background:${c.primary}!important}.discover-actions #random,.card-footer a:first-child,.bottom-nav #navNew .nav-icon,#startDiscover{background:${c.accent}!important}.bottom-nav{background:${c.nav}!important}`;
  document.head.append(style);
  }catch(error){console.warn("Design-Einstellungen nicht geladen",error)}
 }
@@ -63,11 +63,12 @@ $("showMap").onclick=()=>{
 };
 $("backDiscover").onclick=()=>document.querySelector('[data-view="discover"]')?.click();
 $("navNew").onclick=()=>{document.querySelectorAll("main section").forEach(section=>section.hidden=section.id!=="newSection");document.querySelectorAll(".bottom-nav button").forEach(button=>{button.classList.toggle("active",button.id==="navNew");button.removeAttribute("aria-current")});$("navNew").setAttribute("aria-current","page");};
+$("surpriseClose").onclick=()=>$("surpriseDialog").close();$("surpriseDialog").addEventListener("click",e=>{if(e.target===$("surpriseDialog"))$("surpriseDialog").close()});
 $("startDiscover").onclick=()=>document.querySelector('[data-view="discover"]')?.click();
 $("random").onclick=()=>{
  const results=places;
  if(!results.length){$("randomResult").textContent="Noch keine Freizeitideen geladen.";return}
  const p=results[Math.floor(Math.random()*results.length)];
- $("randomResult").textContent=p.name+" · "+(p.locality||"Ort unbekannt");
+ const dialog=$("surpriseDialog"),details=$("surpriseDetails");details.replaceChildren();const add=(label,value)=>{if(value==null||!String(value).trim())return;const wrap=node("div",null,"surprise-detail");wrap.append(node("strong",label),node("p",String(value)));details.append(wrap)};add("Kategorie",p.categories?.label);add("Ort",p.locality);add("Adresse",p.address);add("Beschreibung",p.notes);const links=node("div",null,"surprise-links");links.append(link(appleMaps(p),"In Apple Karten öffnen","external-link"));if(p.website_url&&/^https:\/\//i.test(p.website_url))links.append(link(p.website_url,"Website öffnen","external-link"));details.append(links);$("surpriseTitle").textContent=p.name;$("randomResult").textContent="";if(typeof dialog.showModal==="function")dialog.showModal();else dialog.setAttribute("open","");
 };
 (async()=>{try{const headers={apikey:KEY,Accept:"application/json"};const [p,c]=await Promise.all([fetch(API+"/rest/v1/places?select=id,name,locality,address,notes,website_url,latitude,longitude,categories(label)&status=eq.published&order=name.asc",{headers}),fetch(API+"/rest/v1/categories?select=id,label&order=label.asc",{headers})]);if(!p.ok||!c.ok)throw Error("Supabase "+p.status+"/"+c.status);places=await p.json();categories=await c.json();const towns=[...new Set(places.map(x=>x.locality).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"de"));for(const town of towns){const option=node("option",town);option.value=town;$("localityFilter").append(option)}render()}catch(error){$("status").textContent="Freizeitideen konnten nicht geladen werden: "+error.message}})();
