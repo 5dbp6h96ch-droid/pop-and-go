@@ -64,5 +64,10 @@ $("showMap").onclick=()=>{
 $("backDiscover").onclick=()=>document.querySelector('[data-view="discover"]')?.click();
 $("navNew").onclick=()=>{document.querySelectorAll("main section").forEach(section=>section.hidden=section.id!=="newSection");document.querySelectorAll(".bottom-nav button").forEach(button=>{button.classList.toggle("active",button.id==="navNew");button.removeAttribute("aria-current")});$("navNew").setAttribute("aria-current","page");};
 $("startDiscover").onclick=()=>document.querySelector('[data-view="discover"]')?.click();
-$("random").onclick=()=>{const results=current();if(!results.length)return;const p=results[Math.floor(Math.random()*results.length)];$("randomResult").textContent="Zufallstipp: "+p.name+" · "+(p.locality||"");$("status").textContent="Zufallsvorschlag: "+p.name+" · "+p.locality;const target=document.querySelector("#cards .card");if(target){const chosen=Array.from($("cards").children).find(e=>e.querySelector("h3")?.textContent===p.name);if(chosen){chosen.scrollIntoView({behavior:"smooth",block:"center"});chosen.style.outline="3px solid #7040ee";setTimeout(()=>chosen.style.outline="",1700)}}};
+$("random").onclick=()=>{
+ const results=places;
+ if(!results.length){$("randomResult").textContent="Noch keine Freizeitideen geladen.";return}
+ const p=results[Math.floor(Math.random()*results.length)];
+ $("randomResult").textContent=p.name+" · "+(p.locality||"Ort unbekannt");
+};
 (async()=>{try{const headers={apikey:KEY,Accept:"application/json"};const [p,c]=await Promise.all([fetch(API+"/rest/v1/places?select=id,name,locality,address,notes,website_url,latitude,longitude,categories(label)&status=eq.published&order=name.asc",{headers}),fetch(API+"/rest/v1/categories?select=id,label&order=label.asc",{headers})]);if(!p.ok||!c.ok)throw Error("Supabase "+p.status+"/"+c.status);places=await p.json();categories=await c.json();const towns=[...new Set(places.map(x=>x.locality).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"de"));for(const town of towns){const option=node("option",town);option.value=town;$("localityFilter").append(option)}render()}catch(error){$("status").textContent="Freizeitideen konnten nicht geladen werden: "+error.message}})();
