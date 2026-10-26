@@ -9,7 +9,7 @@ function element(tag,label){const e=document.createElement(tag);if(label!==undef
 function line(container,label,val){const p=element("p",label+": "+esc(val));container.append(p)}
 function showTab(tab){
  const active=profile?.account_status==="active",admin=active&&profile?.is_admin;
- const allowed=adminMode?(admin?(["admin","design","mine"].includes(tab)?tab:"admin"):"proposal"):"proposal";
+ const allowed=adminMode?(admin?(["admin","design","mine"].includes(tab)?tab:"admin"):"none"):"proposal";
  $("proposal").hidden=!active||allowed!=="proposal";
  $("mine").hidden=!adminMode||!active||allowed!=="mine";
  $("admin").hidden=!adminMode||!admin||allowed!=="admin";$("design").hidden=!adminMode||!admin||allowed!=="design";
@@ -28,8 +28,8 @@ async function refresh(){
  $("proposal").hidden=!active;
  $("tabNav").hidden=!adminMode||!active;$("tabProposal").hidden=adminMode;$("tabMine").hidden=!adminMode;$("tabAdmin").hidden=!(adminMode&&active&&profile?.is_admin);$("tabDesign").hidden=!(adminMode&&active&&profile?.is_admin);showTab(adminMode?"admin":"proposal");
  if(!active)msg("Konto noch nicht freigegeben. Anträge sind erst nach Administratorfreigabe möglich.");
- else msg("Angemeldet als "+u.email);
- await listMine();
+ else msg(adminMode&&!profile?.is_admin?"Dieser Verwaltungsbereich ist ausschließlich für Administratoren zugänglich.":"Angemeldet als "+u.email);
+ if(adminMode)await listMine();
  if(adminMode&&active&&profile?.is_admin){await listAdmin();await listMembers()}
 }
 $("login").onsubmit=async e=>{e.preventDefault();msg("Anmeldung wird geprüft …");const {error}=await db.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});if(error){msg("Anmeldung fehlgeschlagen: "+error.message);return}await refresh()};
