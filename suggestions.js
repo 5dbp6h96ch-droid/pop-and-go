@@ -365,10 +365,25 @@ async function loadPlacesAdmin(){
 }
 function renderPlacesAdmin(){
  const filter=$("placesFilter").value,q=$("placesSearch").value.trim().toLocaleLowerCase("de");
- const items=adminPlaces.filter(p=>(filter==="archived"?p.status==="archived":p.status==="published"&&(filter==="all"||filter==="address"&&!p.address?.trim()||filter==="incomplete"&&missingPlace(p).length>0))&&[p.name,p.locality,p.address].join(" ").toLocaleLowerCase("de").includes(q));
+ const items=adminPlaces.filter(p=>(filter==="archived"?p.status==="archived":p.status==="published"&&(filter==="all"||filter==="categories"||filter==="address"&&!p.address?.trim()||filter==="incomplete"&&missingPlace(p).length>0))&&[p.name,p.locality,p.address].join(" ").toLocaleLowerCase("de").includes(q));
  $("placesSummary").textContent=items.length+" Einträge · "+adminPlaces.filter(p=>p.status==="published"&&!p.address?.trim()).length+" ohne Adresse · "+adminPlaces.filter(p=>p.status==="published"&&(p.latitude==null||p.longitude==null)).length+" ohne GPS";
  const box=$("placesAdminList");box.replaceChildren();
  for(const p of items){
+  if(filter==="categories"){
+   const row=element("div");row.className="compact-category-row";
+   const name=element("strong",p.name+" · "+p.locality);name.title=p.name+" · "+p.locality;
+   const choose=element("select");choose.setAttribute("aria-label","Kategorie von "+p.name);
+   for(const c of [{id:"",label:"Ohne Kategorie"},...adminCategories]){const option=element("option",c.label);option.value=c.id;choose.append(option)}
+   choose.value=p.category_id||"";
+   const status=element("small");status.setAttribute("role","status");
+   choose.onchange=async()=>{
+    choose.disabled=true;status.textContent="…";
+    try{const result=await placesApi("update",{id:p.id,fields:{category_id:choose.value||null},expected_updated_at:p.updated_at});Object.assign(p,result.place);status.textContent="✓"}
+    catch(e){choose.value=p.category_id||"";status.textContent="Fehler";status.title=e.message}
+    finally{choose.disabled=false}
+   };
+   row.append(name,choose,status);box.append(row);continue;
+  }
   const card=element("div");card.className="item";
   card.append(element("strong",p.name+" · "+p.locality),element("p","Kategorie: "+(adminCategories.find(c=>c.id===p.category_id)?.label||"Nicht zugeordnet")),element("p",p.status==="archived"?"Archiviert":"Fehlt: "+(missingPlace(p).join(", ")||"Keine wesentlichen Angaben")));
   if(p.status==="published"){
