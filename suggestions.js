@@ -315,7 +315,7 @@ function renderDesignFields(){
  }
  renderDesignPreview();
 }
-$("tabDesign").addEventListener("click",async()=>{
+$("tabDesign").addEventListener("click",async()=>{showTab("design");
  try{const result=await designApi("get");designDraft={...designDefaults,...result.draft};designHasPrevious=result.has_previous;renderDesignFields();$("designMessage").textContent="Privater Entwurf geladen."}catch(e){$("designMessage").textContent=e.message}
 });
 $("designSave").onclick=async()=>{try{await designApi("save",designDraft);designArmed=false;$("designMessage").textContent="Entwurf privat gespeichert. Öffentliches Design unverändert."}catch(e){$("designMessage").textContent=e.message}};
@@ -324,5 +324,15 @@ $("designPublish").onclick=async()=>{
  try{await designApi("save",designDraft);await designApi("publish");designArmed=false;$("designPublish").textContent="Design veröffentlichen";designHasPrevious=true;$("designMessage").textContent="Design veröffentlicht. Nach Neuladen für alle sichtbar."}catch(e){$("designMessage").textContent=e.message}
 };
 $("designRestore").onclick=async()=>{if(!designHasPrevious){$("designMessage").textContent="Noch keine frühere Version vorhanden.";return}try{await designApi("restore");const result=await designApi("get");designDraft={...designDefaults,...result.draft};renderDesignFields();$("designMessage").textContent="Vorheriges Design wiederhergestellt."}catch(e){$("designMessage").textContent=e.message}};
+
+async function loadAdminPublishedTheme(){
+ try{const resp=await fetch("https://itaoljnqwoiifztjlfyc.supabase.co/rest/v1/published_design?select=published",{headers:{apikey:"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV"},cache:"no-store"});
+ const data=await resp.json(),c=data?.[0]?.published;if(!c||!Object.values(c).every(x=>typeof x==="string"&&/^#[0-9a-f]{6}$/i.test(x)))return;
+ const style=document.createElement("style");
+ style.textContent=`body{background:${c.background};color:${c.text}}header{background:linear-gradient(115deg,${c.primary},${c.primary}dd)!important}form,.panel{background:${c.surface};border-color:${c.border}}button:not(.secondary){background:${c.primary}}button.secondary{background:${c.soft};color:${c.primary}}#proposal button[type=submit],#parseDictation{background:${c.accent}!important;color:${c.text}!important}`;
+ document.head.append(style)
+ }catch(e){console.warn("Design nicht geladen",e)}
+}
+loadAdminPublishedTheme();
 
 refresh().catch(e=>msg(e.message));
