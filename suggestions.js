@@ -206,11 +206,42 @@ async function listAdmin(){const box=$("adminList");box.replaceChildren();const 
   }catch(error){addressResults.replaceChildren(element("p","Adresssuche fehlgeschlagen: "+error.message))}
   finally{addressButton.disabled=false}
  };
- const save=element("button","Änderungen speichern"),approve=element("button","Prüfen und freigeben"),reject=element("button","Ablehnen");approve.type=reject.type=save.type="button";reject.className="secondary";form.append(save,approve,reject);
- async function saveDraft(){const edits={};for(const [k,input] of Object.entries(fields)){let value=input.value.trim();if(k==="edited_latitude"||k==="edited_longitude"){if(value!==""&&!Number.isFinite(Number(value)))throw Error("Ungültige Koordinate");edits[k]=value===""?null:Number(value)}else edits[k]=value||null}const {error}=await db.from("suggestions").update(edits).eq("id",r.id).eq("status","pending");if(error)throw Error(error.message)}
- save.onclick=async()=>{try{await saveDraft();msg("Änderungen gespeichert.")}catch(e){msg("Speichern fehlgeschlagen: "+e.message)}};
- approve.onclick=async()=>{if(!confirm("Diesen Vorschlag einmalig öffentlich freigeben?"))return;approve.disabled=true;try{await saveDraft();await adminApi("review",{id:r.id,approve:true});msg("Vorschlag freigegeben.");await listAdmin();await listMine()}catch(e){msg("Freigabe fehlgeschlagen: "+e.message);approve.disabled=false}};
- reject.onclick=async()=>{if(!confirm("Vorschlag ablehnen?"))return;reject.disabled=true;try{await saveDraft();await adminApi("review",{id:r.id,approve:false});msg("Vorschlag abgelehnt.");await listAdmin();await listMine()}catch(e){msg("Ablehnung fehlgeschlagen: "+e.message);reject.disabled=false}};
+ const save=element("button","Änderungen speichern"),approve=element("button","Prüfen und freigeben"),reject=element("button","Ablehnen");
+ approve.type=reject.type=save.type="button";reject.className="secondary";form.append(save,approve,reject);
+ const feedback=element("p");feedback.setAttribute("role","status");feedback.setAttribute("aria-live","polite");form.append(feedback);
+ const say=t=>{feedback.textContent=t;msg(t)};
+ async function saveDraft(){
+  const edits={};
+  for(const [k,input] of Object.entries(fields)){
+    let value=input.value.trim();
+    if(k==="edited_latitude"||k==="edited_longitude"){
+      if(value!==""&&!Number.isFinite(Number(value)))throw Error("Ungültige Koordinate");
+      edits[k]=value===""?null:Number(value)
+    }else edits[k]=value||null;
+  }
+  const {data,error}=await db.from("suggestions").update(edits).eq("id",r.id).eq("status","pending").select("id");
+  if(error)throw Error(error.message);
+  if(!data?.length)throw Error("Keine Änderung gespeichert. Bitte den Vorschlagsstatus prüfen.");
+ }
+ save.onclick=async()=>{save.disabled=true;try{await saveDraft();say("Änderungen gespeichert.")}catch(e){say("Speichern fehlgeschlagen: "+e.message)}finally{save.disabled=false}};
+ let armed=false;
+ approve.onclick=async()=>{
+  if(!armed){armed=true;approve.textContent="Freigabe jetzt bestätigen";say("Bitte die Freigabe mit einem zweiten Tippen bestätigen.");return}
+  approve.disabled=true;approve.textContent="Freigabe läuft …";say("Freigabe wird verarbeitet …");
+  try{
+    await saveDraft();
+    const result=await adminApi("review",{id:r.id,approve:true});
+    if(!result.success)throw Error("Server hat die Freigabe nicht bestätigt.");
+    say("Vorschlag erfolgreich freigegeben.");await listAdmin();await listMine()
+  }catch(e){const reason=String(e.message||e);say(/bereits|duplicate|existiert|doppelt|already/i.test(reason)?"Dieser Ort ist bereits vorhanden. Bitte den bestehenden Eintrag prüfen oder den Vorschlag ablehnen. ("+reason+")":"Freigabe fehlgeschlagen: "+reason);approve.disabled=false;approve.textContent="Prüfen und freigeben";armed=false}
+ };
+ let rejectArmed=false;
+ reject.onclick=async()=>{
+  if(!rejectArmed){rejectArmed=true;reject.textContent="Ablehnung bestätigen";say("Bitte durch erneutes Tippen bestätigen.");return}
+  reject.disabled=true;say("Ablehnung wird verarbeitet …");
+  try{await saveDraft();await adminApi("review",{id:r.id,approve:false});say("Vorschlag abgelehnt.");await listAdmin();await listMine()}
+  catch(e){say("Ablehnung fehlgeschlagen: "+e.message);reject.disabled=false;rejectArmed=false;reject.textContent="Ablehnen"}
+ };
  box.append(form)}}
 async function listMembers(){const box=$("membersList");if(!box)return;box.replaceChildren();try{const {members}=await adminApi("members");const activeRequests=members.filter(m=>m.account_status==="pending");if(!activeRequests.length){box.append(element("p","Keine offenen Registrierungsanträge."));return}for(const m of activeRequests){const row=element("div");row.className="item";row.append(element("strong",m.email||m.user_id));const accept=element("button","Konto freigeben"),deny=element("button","Ablehnen");deny.className="secondary";accept.type=deny.type="button";accept.onclick=async()=>{if(!confirm("Dieses Mitglied freigeben?"))return;try{await adminApi("member",{id:m.user_id,status:"active"});msg("Mitglied freigegeben.");await listMembers()}catch(e){msg(e.message)}};deny.onclick=async()=>{if(!confirm("Diesen Registrierungsantrag ablehnen?"))return;try{await adminApi("member",{id:m.user_id,status:"rejected"});msg("Registrierungsantrag abgelehnt.");await listMembers()}catch(e){msg(e.message)}};row.append(accept,deny);box.append(row)}}catch(e){msg("Mitglieder konnten nicht geladen werden: "+e.message)}}
 refresh().catch(e=>msg(e.message));
