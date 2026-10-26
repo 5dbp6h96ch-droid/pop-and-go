@@ -39,7 +39,13 @@ $("query").oninput=e=>{search=e.target.value.trim();render()};$("sort").onchange
 $("localityFilter").onchange=e=>{selectedLocality=e.target.value;if(radius&&!selectedLocality){radius="";$("radiusFilter").value=""}updateRadiusHint();render()};
 $("radiusFilter").onchange=e=>{radius=e.target.value;if(radius&&!selectedLocality){radius="";e.target.value="";$("radiusHint").textContent="Bitte zuerst einen Ort als Ausgangspunkt auswählen.";return}updateRadiusHint();render()};
 function updateRadiusHint(){$("radiusHint").textContent=radius?(originCoords()?"Umkreis um die ungefähre Mitte der vorhandenen Orte in "+selectedLocality+". Einträge ohne GPS werden ausgeblendet.":"Für diesen Ort fehlen Koordinaten; bitte Umkreis auf Unbegrenzt setzen."):""}
-$("showMap").onclick=()=>document.querySelector('[data-view="mapping"]')?.click();
+$("showMap").onclick=()=>{
+ document.querySelectorAll("main section").forEach(section=>section.hidden=section.id!=="mapping");
+ document.querySelectorAll("[data-view]").forEach(button=>{button.classList.remove("active");button.removeAttribute("aria-current")});
+ $("mapCount").textContent="Karte wird geladen …";
+ window.scrollTo({top:0,behavior:"instant"});
+ setTimeout(()=>{try{drawMap()}catch(error){$("mapCount").textContent="Karte konnte nicht geöffnet werden: "+error.message}},100);
+};
 $("navNew").onclick=()=>{window.location.href="vorschlagen.html"};
 $("startDiscover").onclick=()=>document.querySelector('[data-view="discover"]')?.click();
 $("random").onclick=()=>{const results=current();if(!results.length)return;const p=results[Math.floor(Math.random()*results.length)];$("randomResult").textContent="Zufallstipp: "+p.name+" · "+(p.locality||"");$("status").textContent="Zufallsvorschlag: "+p.name+" · "+p.locality;const target=document.querySelector("#cards .card");if(target){const chosen=Array.from($("cards").children).find(e=>e.querySelector("h3")?.textContent===p.name);if(chosen){chosen.scrollIntoView({behavior:"smooth",block:"center"});chosen.style.outline="3px solid #7040ee";setTimeout(()=>chosen.style.outline="",1700)}}};
