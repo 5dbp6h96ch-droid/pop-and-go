@@ -9,13 +9,13 @@ function element(tag,label){const e=document.createElement(tag);if(label!==undef
 function line(container,label,val){const p=element("p",label+": "+esc(val));container.append(p)}
 function showTab(tab){
  const active=profile?.account_status==="active",admin=active&&profile?.is_admin;
- const allowed=adminMode?(admin?(["admin","design","mine"].includes(tab)?tab:"admin"):"none"):"proposal";
+ const allowed=adminMode?(admin?(["admin","design","mine","places"].includes(tab)?tab:"admin"):"none"):"proposal";
  $("proposal").hidden=!active||allowed!=="proposal";
  $("mine").hidden=!adminMode||!active||allowed!=="mine";
- $("admin").hidden=!adminMode||!admin||allowed!=="admin";$("design").hidden=!adminMode||!admin||allowed!=="design";
- for(const [name,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"],["design","tabDesign"]]){$(id).setAttribute("aria-selected",String(allowed===name))}
+ $("admin").hidden=!adminMode||!admin||allowed!=="admin";$("design").hidden=!adminMode||!admin||allowed!=="design";$("placesAdmin").hidden=!adminMode||!admin||allowed!=="places";
+ for(const [name,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"],["design","tabDesign"],["places","tabPlaces"]]){$(id).setAttribute("aria-selected",String(allowed===name))}
 }
-for(const [tab,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"],["design","tabDesign"]])$(id).onclick=()=>{showTab(tab);if(tab==="design")openDesignStudio()};
+for(const [tab,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"],["design","tabDesign"]])$(id).onclick=()=>{showTab(tab);if(tab==="design")openDesignStudio();if(tab==="places")loadPlacesAdmin()};
 async function refresh(){
  const {data:{user:u}}=await db.auth.getUser();user=u;
  $("auth").hidden=!!u;$("logged").hidden=!u;
@@ -26,7 +26,7 @@ async function refresh(){
  const active=profile?.account_status==="active";
  $("pendingAccount").hidden=active;
  $("proposal").hidden=!active;
- $("tabNav").hidden=!adminMode||!active;$("tabProposal").hidden=adminMode;$("tabMine").hidden=!adminMode;$("tabAdmin").hidden=!(adminMode&&active&&profile?.is_admin);$("tabDesign").hidden=!(adminMode&&active&&profile?.is_admin);showTab(adminMode?"admin":"proposal");
+ $("tabNav").hidden=!adminMode||!active;$("tabProposal").hidden=adminMode;$("tabMine").hidden=!adminMode;$("tabAdmin").hidden=!(adminMode&&active&&profile?.is_admin);$("tabDesign").hidden=!(adminMode&&active&&profile?.is_admin);$("tabPlaces").hidden=!(adminMode&&active&&profile?.is_admin);showTab(adminMode?"admin":"proposal");
  if(!active)msg("Konto noch nicht freigegeben. Anträge sind erst nach Administratorfreigabe möglich.");
  else msg(adminMode&&!profile?.is_admin?"Dieser Verwaltungsbereich ist ausschließlich für Administratoren zugänglich.":"Angemeldet als "+u.email);
  if(adminMode)await listMine();
@@ -344,5 +344,83 @@ async function loadAdminPublishedTheme(){
  }catch(e){console.warn("Design nicht geladen",e)}
 }
 loadAdminPublishedTheme();
+
+
+let adminPlaces=[];
+async function placesApi(action,data={}){
+ const {data:{session}}=await db.auth.getSession();if(!session?.access_token)throw Error("Bitte neu anmelden");
+ const response=await fetch("https://itaoljnqwoiifztjlfyc.supabase.co/functions/v1/popgo-places-admin",{method:"POST",headers:{authorization:"Bearer "+session.access_token,apikey:"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV","content-type":"application/json"},body:JSON.stringify({action,...data})});
+ const result=await response.json();if(!response.ok)throw Error(result.error||"Verwaltung nicht verfügbar");return result;
+}
+function missingPlace(p){
+ const missing=[];if(!p.address?.trim())missing.push("Adresse");
+ if(p.latitude==null||p.longitude==null)missing.push("GPS");
+ if(!p.website_url?.trim())missing.push("Website");
+ return missing;
+}
+async function loadPlacesAdmin(){
+ $("placesSummary").textContent="Einträge werden geladen …";
+ try{const result=await placesApi("list");adminPlaces=result.places||[];renderPlacesAdmin()}
+ catch(e){$("placesSummary").textContent="Laden fehlgeschlagen: "+e.message}
+}
+function renderPlacesAdmin(){
+ const filter=$("placesFilter").value,q=$("placesSearch").value.trim().toLocaleLowerCase("de");
+ const items=adminPlaces.filter(p=>(filter==="archived"?p.status==="archived":p.status==="published"&&(filter==="all"||filter==="address"&&!p.address?.trim()||filter==="incomplete"&&missingPlace(p).length>0))&&[p.name,p.locality,p.address].join(" ").toLocaleLowerCase("de").includes(q));
+ $("placesSummary").textContent=items.length+" Einträge · "+adminPlaces.filter(p=>p.status==="published"&&!p.address?.trim()).length+" ohne Adresse · "+adminPlaces.filter(p=>p.status==="published"&&(p.latitude==null||p.longitude==null)).length+" ohne GPS";
+ const box=$("placesAdminList");box.replaceChildren();
+ for(const p of items){
+  const card=element("div");card.className="item";
+  card.append(element("strong",p.name+" · "+p.locality),element("p",p.status==="archived"?"Archiviert":"Fehlt: "+(missingPlace(p).join(", ")||"Keine wesentlichen Angaben")));
+  const action=element("button",p.status==="archived"?"Wiederherstellen":"Bearbeiten");action.type="button";action.className="secondary";card.append(action);
+  if(p.status==="archived"){
+   action.onclick=()=>confirmPlaceAction(p,"restore",card);box.append(card);continue;
+  }
+  action.onclick=()=>{
+   if(card.querySelector("form")){card.querySelector("form").remove();return}
+   const form=element("form");form.noValidate=true;
+   const keys=[["name","Name"],["locality","Ort"],["region","Region"],["address","Adresse"],["phone","Telefon"],["email","E-Mail"],["website_url","Website"],["source_url","Quelle"],["notes","Beschreibung"],["latitude","Breitengrad"],["longitude","Längengrad"]];
+   const fields={};
+   for(const [key,label] of keys){
+    const wrapper=element("label",label);const input=element(key==="notes"?"textarea":"input");
+    if(key==="website_url"||key==="source_url")input.type="url";if(key==="email")input.type="email";
+    if(key==="latitude"||key==="longitude")input.inputMode="decimal";
+    input.value=p[key]??"";wrapper.append(input);form.append(wrapper);fields[key]=input;
+   }
+   const info=element("p");info.setAttribute("role","status");form.append(info);
+   const save=element("button","Änderungen speichern");save.type="submit";
+   form.append(save);
+   const archive=element("button","Archivieren");archive.type="button";archive.className="secondary";archive.onclick=()=>confirmPlaceAction(p,"archive",card);
+   form.append(archive);
+   form.onsubmit=async ev=>{
+    ev.preventDefault();save.disabled=true;info.textContent="Speichere …";
+    try{
+     const values={};for(const key of Object.keys(fields)){let value=fields[key].value.trim();values[key]=(key==="latitude"||key==="longitude")?(value===""?null:Number(value)):value}
+     if(!values.name)throw Error("Name darf nicht leer sein.");
+     const res=await placesApi("update",{id:p.id,fields:values,expected_updated_at:p.updated_at});
+     Object.assign(p,res.place);info.textContent="Gespeichert.";renderPlacesAdmin()
+    }catch(e){info.textContent="Speichern fehlgeschlagen: "+e.message}finally{save.disabled=false}
+   };
+   card.append(form);
+  };
+  box.append(card);
+ }
+ if(!items.length)box.append(element("p","Keine passenden Einträge."));
+}
+async function confirmPlaceAction(p,action,card){
+ const prior=card.querySelector(".confirm-place");
+ if(prior){prior.remove();return}
+ const panel=element("div");panel.className="confirm-place";
+ panel.append(element("p",action==="archive"?"Der Eintrag verschwindet aus der öffentlichen Liste. Wiederherstellung bleibt möglich.":"Der Eintrag wird wieder veröffentlicht."));
+ const proceed=element("button",action==="archive"?"Archivierung bestätigen":"Wiederherstellung bestätigen");proceed.type="button";
+ const cancel=element("button","Abbrechen");cancel.type="button";cancel.className="secondary";cancel.onclick=()=>panel.remove();
+ const info=element("p");info.setAttribute("role","status");
+ proceed.onclick=async()=>{
+  proceed.disabled=true;try{await placesApi(action,{id:p.id,expected_updated_at:p.updated_at});info.textContent="Aktion ausgeführt.";await loadPlacesAdmin()}
+  catch(e){info.textContent="Aktion fehlgeschlagen: "+e.message;proceed.disabled=false}
+ };
+ panel.append(proceed,cancel,info);card.append(panel);
+}
+$("placesFilter").onchange=renderPlacesAdmin;
+$("placesSearch").oninput=renderPlacesAdmin;
 
 refresh().catch(e=>msg(e.message));
