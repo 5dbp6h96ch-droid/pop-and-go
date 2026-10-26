@@ -18,7 +18,9 @@ function appleMaps(p){return "https://maps.apple.com/?q="+encodeURIComponent((p.
 function makeCard(p){
  const box=node("article",null,"card");
  const top=node("div",null,"card-top");
- const icon=node("span",({Restaurant:"🍽",Café:"☕",Biergarten:"🌿",Aktivität:"✦",Beachbar:"☀",Weinlounge:"◈"})[p.categories?.label]||"✦","card-symbol");icon.setAttribute("aria-hidden","true");
+ const icon=node("span",null,"card-symbol");icon.setAttribute("aria-hidden","true");
+ const paths={Restaurant:'<path d="M4 3v7a3 3 0 0 0 6 0V3M7 3v18M17 3v18M17 3c-4 4-4 9 0 11"/>',Café:'<path d="M4 8h13v6a6 6 0 0 1-6 6h-1a6 6 0 0 1-6-6V8ZM17 9h2a3 3 0 0 1 0 6h-2M7 3v2M12 3v2"/>',Biergarten:'<path d="M12 21V11M12 11c-5 0-8-3-8-8 5 0 8 3 8 8ZM12 15c5 0 8-3 8-8-5 0-8 3-8 8ZM7 21h10"/>',Aktivität:'<path d="m3 20 7-13 4 7 3-5 4 11H3ZM16 3v4M14 5h4"/>',Beachbar:'<path d="m4 4 8 8 8-8H4ZM12 12v8M7 20h10M17 8l3 3M20 8l-3 3"/>',Weinlounge:'<path d="M5 3h14v5a7 7 0 0 1-14 0V3ZM12 15v6M7 21h10M6 8h12"/>'};
+ icon.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">'+(paths[p.categories?.label]||'<path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z"/>')+'</svg>';
  const content=node("div",null,"card-content");
  content.append(node("span",p.categories?.label||"Freizeitidee","tag"),node("h3",p.name),node("p",p.locality||"Ort nicht angegeben","sub"));
  top.append(icon,content);
