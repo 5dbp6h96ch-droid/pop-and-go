@@ -346,7 +346,7 @@ async function loadAdminPublishedTheme(){
 loadAdminPublishedTheme();
 
 
-let adminPlaces=[];
+let adminPlaces=[],adminCategories=[];
 async function placesApi(action,data={}){
  const {data:{session}}=await db.auth.getSession();if(!session?.access_token)throw Error("Bitte neu anmelden");
  const response=await fetch("https://itaoljnqwoiifztjlfyc.supabase.co/functions/v1/popgo-places-admin",{method:"POST",headers:{authorization:"Bearer "+session.access_token,apikey:"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV","content-type":"application/json"},body:JSON.stringify({action,...data})});
@@ -360,7 +360,7 @@ function missingPlace(p){
 }
 async function loadPlacesAdmin(){
  $("placesSummary").textContent="Einträge werden geladen …";
- try{const result=await placesApi("list");adminPlaces=result.places||[];renderPlacesAdmin();$("placesAdmin").scrollIntoView({block:"start",behavior:"smooth"})}
+ try{const result=await placesApi("list");adminPlaces=result.places||[];adminCategories=result.categories||[];renderPlacesAdmin();renderCategoryAdmin();$("placesAdmin").scrollIntoView({block:"start",behavior:"smooth"})}
  catch(e){$("placesSummary").textContent="Laden fehlgeschlagen: "+e.message}
 }
 function renderPlacesAdmin(){
@@ -370,7 +370,7 @@ function renderPlacesAdmin(){
  const box=$("placesAdminList");box.replaceChildren();
  for(const p of items){
   const card=element("div");card.className="item";
-  card.append(element("strong",p.name+" · "+p.locality),element("p",p.status==="archived"?"Archiviert":"Fehlt: "+(missingPlace(p).join(", ")||"Keine wesentlichen Angaben")));
+  card.append(element("strong",p.name+" · "+p.locality),element("p","Kategorie: "+(adminCategories.find(c=>c.id===p.category_id)?.label||"Nicht zugeordnet")),element("p",p.status==="archived"?"Archiviert":"Fehlt: "+(missingPlace(p).join(", ")||"Keine wesentlichen Angaben")));
   const action=element("button",p.status==="archived"?"Wiederherstellen":"Bearbeiten");action.type="button";action.className="secondary";card.append(action);
   if(p.status==="archived"){
    action.onclick=()=>confirmPlaceAction(p,"restore",card);box.append(card);continue;
@@ -386,6 +386,9 @@ function renderPlacesAdmin(){
     if(key==="latitude"||key==="longitude")input.inputMode="decimal";
     input.value=p[key]??"";input.dataset.placeField=key;if(key==="source_url")input.dataset.sourceUrl="true";wrapper.append(input);form.append(wrapper);fields[key]=input;
    }
+   const categoryLabel=element("label","Kategorie");const categorySelect=element("select");categorySelect.dataset.placeField="category_id";
+   for(const c of [{id:"",label:"Keine Kategorie"},...adminCategories]){const opt=element("option",c.label);opt.value=c.id;categorySelect.append(opt)}
+   categorySelect.value=p.category_id||"";categoryLabel.append(categorySelect);form.prepend(categoryLabel);fields.category_id=categorySelect;
    const sourceButton=element("button","Quellen-Website auswerten");sourceButton.type="button";sourceButton.className="source-lookup secondary";const sourceResult=element("div");sourceResult.className="source-results";form.append(sourceButton,sourceResult);
    const gpsButton=element("button","GPS aus Adresse ermitteln");gpsButton.type="button";gpsButton.className="geocode-address secondary";const gpsResult=element("div");gpsResult.className="geocode-results";form.append(gpsButton,gpsResult);
    const findAddress=element("button","Adresse automatisch suchen");findAddress.type="button";findAddress.className="secondary";
@@ -440,7 +443,7 @@ function renderPlacesAdmin(){
    form.onsubmit=async ev=>{
     ev.preventDefault();save.disabled=true;info.textContent="Speichere …";
     try{
-     const values={};for(const key of Object.keys(fields)){let value=fields[key].value.trim();values[key]=(key==="latitude"||key==="longitude")?(value===""?null:Number(value)):value}
+     const values={};for(const key of Object.keys(fields)){let value=fields[key].value.trim();values[key]=key==="category_id"?(value||null):(key==="latitude"||key==="longitude")?(value===""?null:Number(value)):value}
      if(!values.name)throw Error("Name darf nicht leer sein.");
      const res=await placesApi("update",{id:p.id,fields:values,expected_updated_at:p.updated_at});
      Object.assign(p,res.place);info.textContent="Gespeichert.";renderPlacesAdmin()
@@ -468,5 +471,34 @@ async function confirmPlaceAction(p,action,card){
 }
 $("placesFilter").onchange=renderPlacesAdmin;
 $("placesSearch").oninput=renderPlacesAdmin;
+
+
+function renderCategoryAdmin(){
+ const box=$("categoryAdminList");box.replaceChildren();
+ const all=adminCategories.slice().sort((a,b)=>a.label.localeCompare(b.label,"de"));
+ for(const cat of all){
+  const used=adminPlaces.filter(p=>p.category_id===cat.id).length;
+  const row=element("div");row.className="item";
+  row.append(element("strong",cat.label),element("p",used+" veröffentlichte oder archivierte Einträge"));
+  const rename=element("button","Umbenennen");rename.type="button";rename.className="secondary";
+  const remove=element("button","Löschen");remove.type="button";remove.className="secondary";remove.disabled=used>0;
+  const edit=element("div");row.append(rename,remove,edit);box.append(row);
+  rename.onclick=()=>{
+   edit.replaceChildren();const input=element("input");input.value=cat.label;input.maxLength=80;
+   const apply=element("button","Namen speichern");apply.type="button";
+   apply.onclick=async()=>{try{apply.disabled=true;await placesApi("category_rename",{category_id:cat.id,label:input.value.trim()});$("categoryAdminStatus").textContent="Kategorie umbenannt.";await loadPlacesAdmin()}catch(e){$("categoryAdminStatus").textContent=e.message;apply.disabled=false}};
+   edit.append(input,apply);
+  };
+  remove.onclick=async()=>{
+   if(!confirm("Ungenutzte Kategorie „"+cat.label+"“ wirklich löschen?"))return;
+   try{await placesApi("category_delete",{category_id:cat.id});$("categoryAdminStatus").textContent="Kategorie gelöscht.";await loadPlacesAdmin()}catch(e){$("categoryAdminStatus").textContent=e.message}
+  };
+ }
+}
+$("categoryCreateForm").onsubmit=async e=>{
+ e.preventDefault();const input=$("categoryNewName"),name=input.value.trim();if(!name)return;
+ try{await placesApi("category_create",{label:name});input.value="";$("categoryAdminStatus").textContent="Kategorie angelegt.";await loadPlacesAdmin()}
+ catch(error){$("categoryAdminStatus").textContent="Kategorie nicht angelegt: "+error.message}
+};
 
 refresh().catch(e=>msg(e.message));
