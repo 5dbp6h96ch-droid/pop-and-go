@@ -84,25 +84,71 @@ function field(form,label,value,name,type="text"){const l=element("label",label)
 async function adminApi(path,body){const {data:{session}}=await db.auth.getSession();if(!session?.access_token)throw Error("Bitte neu anmelden");const response=await fetch("https://itaoljnqwoiifztjlfyc.supabase.co/functions/v1/popgo-admin/"+path,{method:body?"POST":"GET",headers:{"authorization":"Bearer "+session.access_token,"apikey":"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV","content-type":"application/json"},body:body?JSON.stringify(body):undefined});const json=await response.json();if(!response.ok)throw Error(json.error||"Administrationsanfrage fehlgeschlagen");return json}
 async function listAdmin(){const box=$("adminList");box.replaceChildren();const {data,error}=await db.from("suggestions").select("*").eq("status","pending").order("submitted_at",{ascending:true}).limit(100);if(error){line(box,"Fehler",error.message);return}if(!data?.length){box.append(element("p","Keine offenen Vorschläge."));return}for(const r of data){const form=element("form");form.className="panel";const title=element("h3",r.proposed_name+" · "+r.proposed_locality);form.append(title);
  const fields={edited_name:field(form,"Name",r.edited_name??r.proposed_name,"edited_name"),edited_locality:field(form,"Ort",r.edited_locality??r.proposed_locality,"edited_locality"),edited_category:field(form,"Kategorie",r.edited_category??r.proposed_category,"edited_category"),edited_address:field(form,"Adresse",r.edited_address??r.proposed_address,"edited_address"),edited_phone:field(form,"Telefon",r.edited_phone??r.proposed_phone,"edited_phone"),edited_email:field(form,"E-Mail",r.edited_email??r.proposed_email,"edited_email"),edited_website:field(form,"Website",r.edited_website??r.proposed_website??r.proposed_url,"edited_website"),edited_notes:field(form,"Notiz",r.edited_notes??r.proposed_note,"edited_notes","textarea"),edited_latitude:field(form,"Breitengrad",r.edited_latitude??r.proposed_latitude,"edited_latitude"),edited_longitude:field(form,"Längengrad",r.edited_longitude??r.proposed_longitude,"edited_longitude"),review_note:field(form,"Rückmeldung",r.review_note,"review_note","textarea")};
- const mapButton=element("button","Koordinaten auf Karte auswählen");mapButton.type="button";mapButton.className="secondary";
- const mapBox=element("div");mapBox.style.cssText="height:300px;width:100%;border-radius:12px;margin:8px 0 16px;display:none";
- form.append(mapButton,mapBox);
+ const mapButton=element("button","Standort suchen / auf Karte auswählen");mapButton.type="button";mapButton.className="secondary";
+ const mapControls=element("div");mapControls.className="panel";mapControls.hidden=true;
+ const searchLabel=element("label","Restaurant oder Adresse suchen");
+ const mapQuery=element("input");mapQuery.type="search";mapQuery.maxLength=100;mapQuery.value=[fields.edited_name.value,fields.edited_locality.value].filter(Boolean).join(", ");searchLabel.append(mapQuery);mapControls.append(searchLabel);
+ const searchButton=element("button","Suchtreffer anzeigen");searchButton.type="button";mapControls.append(searchButton);
+ const external=element("div");external.style.cssText="display:flex;gap:8px;flex-wrap:wrap";
+ for(const [label,root] of [["Google Maps","https://www.google.com/maps/search/?api=1&query="],["Apple Maps","https://maps.apple.com/?q="]]){
+   const link=element("a",label+" ↗");link.target="_blank";link.rel="noopener noreferrer";link.style.cssText="display:inline-block;padding:10px;border:1px solid #d7d1da;border-radius:9px";
+   link.href=root+encodeURIComponent(mapQuery.value);
+   mapQuery.addEventListener("input",()=>link.href=root+encodeURIComponent(mapQuery.value.trim()));
+   external.append(link);
+ }
+ mapControls.append(external);
+ const results=element("div");results.setAttribute("aria-live","polite");mapControls.append(results);
+ const help=element("small","Treffer aus der vorhandenen Ortssuche auswählen oder auf die Karte tippen. Externe Maps-Apps übergeben ihren Pin nicht automatisch zurück.");mapControls.append(help);
+ const mapBox=element("div");mapBox.style.cssText="height:300px;width:100%;border-radius:12px;margin:12px 0 16px;display:none";
+ mapControls.append(mapBox);form.append(mapButton,mapControls);
+ let map=null,marker=null;
+ function placeMarker(lat,lon){
+   const a=Number(lat),b=Number(lon);
+   if(!Number.isFinite(a)||!Number.isFinite(b)||Math.abs(a)>90||Math.abs(b)>180)return;
+   fields.edited_latitude.value=a.toFixed(6);fields.edited_longitude.value=b.toFixed(6);
+   if(!map)return;
+   if(marker)marker.setLatLng([a,b]);else marker=L.marker([a,b]).addTo(map);
+   map.setView([a,b],16);
+   msg("Position übernommen. Bitte speichern oder freigeben.");
+ }
+ function openMap(){
+   if(!window.L){msg("Die Karte konnte nicht geladen werden.");return}
+   mapBox.style.display="block";
+   if(map){setTimeout(()=>map.invalidateSize(),50);return}
+   const lat=Number(fields.edited_latitude.value),lon=Number(fields.edited_longitude.value);
+   const valid=fields.edited_latitude.value.trim()!==""&&fields.edited_longitude.value.trim()!==""&&Number.isFinite(lat)&&Number.isFinite(lon)&&Math.abs(lat)<=90&&Math.abs(lon)<=180;
+   map=L.map(mapBox).setView(valid?[lat,lon]:[49.42,8.60],valid?15:9);
+   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap-Mitwirkende"}).addTo(map);
+   if(valid)marker=L.marker([lat,lon]).addTo(map);
+   map.on("click",event=>placeMarker(event.latlng.lat,event.latlng.lng));
+   setTimeout(()=>map.invalidateSize(),50);
+ }
  mapButton.onclick=()=>{
-  if(!window.L){msg("Kartenbibliothek ist nicht verfügbar.");return}
-  if(mapBox.style.display!=="none"){mapBox.style.display="none";mapButton.textContent="Koordinaten auf Karte auswählen";return}
-  mapBox.style.display="block";mapButton.textContent="Karte schließen";
-  if(mapBox._map){setTimeout(()=>mapBox._map.invalidateSize(),50);return}
-  const lat=Number(fields.edited_latitude.value),lon=Number(fields.edited_longitude.value);
-  const valid=fields.edited_latitude.value.trim()!==""&&fields.edited_longitude.value.trim()!==""&&Number.isFinite(lat)&&Number.isFinite(lon)&&Math.abs(lat)<=90&&Math.abs(lon)<=180;
-  const m=L.map(mapBox).setView(valid?[lat,lon]:[49.42,8.60],valid?15:9);mapBox._map=m;
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap-Mitwirkende"}).addTo(m);
-  let marker=valid?L.marker([lat,lon]).addTo(m):null;
-  m.on("click",event=>{
-    const {lat,lng}=event.latlng;fields.edited_latitude.value=lat.toFixed(6);fields.edited_longitude.value=lng.toFixed(6);
-    if(marker)marker.setLatLng(event.latlng);else marker=L.marker(event.latlng).addTo(m);
-    msg("Koordinaten übernommen. Bitte Änderungen speichern oder freigeben.");
-  });
-  setTimeout(()=>m.invalidateSize(),50);
+   mapControls.hidden=!mapControls.hidden;
+   mapButton.textContent=mapControls.hidden?"Standort suchen / auf Karte auswählen":"Standortsuche schließen";
+   if(!mapControls.hidden)openMap();
+ };
+ searchButton.onclick=async()=>{
+   const term=mapQuery.value.trim();if(term.length<3){msg("Bitte mindestens drei Zeichen eingeben.");return}
+   searchButton.disabled=true;results.replaceChildren();results.append(element("p","Suche läuft …"));
+   try{
+     const {data:{session}}=await db.auth.getSession();if(!session?.access_token)throw Error("Bitte neu anmelden");
+     const url="https://itaoljnqwoiifztjlfyc.supabase.co/functions/v1/popgo-place-search?q="+encodeURIComponent(term);
+     const response=await fetch(url,{headers:{authorization:"Bearer "+session.access_token,apikey:"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV"}});
+     const payload=await response.json();if(!response.ok)throw Error(payload.error||"Suche fehlgeschlagen");
+     results.replaceChildren();
+     if(!payload.results?.length){results.append(element("p","Keine Treffer. Setze den Punkt manuell auf der Karte."));return}
+     for(const p of payload.results){
+       const row=element("div");row.className="item";row.append(element("strong",p.name),element("p",p.address||p.locality||""));
+       const choose=element("button","Diesen Standort übernehmen");choose.type="button";
+       const hasGPS=p.latitude!=null&&p.longitude!=null&&Number.isFinite(Number(p.latitude))&&Number.isFinite(Number(p.longitude));
+       choose.disabled=!hasGPS;
+       if(hasGPS)choose.onclick=()=>{openMap();placeMarker(p.latitude,p.longitude)};
+       else row.append(element("small","Keine Koordinaten vorhanden – Punkt auf Karte setzen."));
+       row.append(choose);results.append(row);
+     }
+   }catch(e){results.replaceChildren();results.append(element("p","Suche nicht verfügbar: "+e.message+". Karte kann manuell genutzt werden."))}
+   finally{searchButton.disabled=false}
  };
  const save=element("button","Änderungen speichern"),approve=element("button","Prüfen und freigeben"),reject=element("button","Ablehnen");approve.type=reject.type=save.type="button";reject.className="secondary";form.append(save,approve,reject);
  async function saveDraft(){const edits={};for(const [k,input] of Object.entries(fields)){let value=input.value.trim();if(k==="edited_latitude"||k==="edited_longitude"){if(value!==""&&!Number.isFinite(Number(value)))throw Error("Ungültige Koordinate");edits[k]=value===""?null:Number(value)}else edits[k]=value||null}const {error}=await db.from("suggestions").update(edits).eq("id",r.id).eq("status","pending");if(error)throw Error(error.message)}
