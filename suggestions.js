@@ -386,6 +386,35 @@ function renderPlacesAdmin(){
     if(key==="latitude"||key==="longitude")input.inputMode="decimal";
     input.value=p[key]??"";wrapper.append(input);form.append(wrapper);fields[key]=input;
    }
+   const findAddress=element("button","Adresse automatisch suchen");findAddress.type="button";findAddress.className="secondary";
+   const addressMatches=element("div");addressMatches.setAttribute("aria-live","polite");
+   form.append(findAddress,addressMatches);
+   findAddress.onclick=async()=>{
+    const term=[fields.name.value.trim(),fields.locality.value.trim()].filter(Boolean).join(", ");
+    if(term.length<3){addressMatches.textContent="Bitte Name oder Ort eintragen.";return}
+    findAddress.disabled=true;addressMatches.replaceChildren(element("p","Adresssuche läuft …"));
+    try{
+     const {data:{session}}=await db.auth.getSession();if(!session?.access_token)throw Error("Bitte neu anmelden");
+     const response=await fetch("https://itaoljnqwoiifztjlfyc.supabase.co/functions/v1/popgo-place-search?q="+encodeURIComponent(term),{headers:{authorization:"Bearer "+session.access_token,apikey:"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV"}});
+     const result=await response.json();if(!response.ok)throw Error(result.error||"Suche fehlgeschlagen");
+     addressMatches.replaceChildren();
+     if(!result.results?.length){addressMatches.append(element("p","Keine passenden Adressen. Bitte manuell ergänzen."));return}
+     for(const hit of result.results){
+      const option=element("div");option.className="item";
+      option.append(element("strong",hit.name||""),element("p",hit.address||hit.locality||"Adresse unbekannt"));
+      if(hit.latitude!=null&&hit.longitude!=null)option.append(element("small","GPS: "+hit.latitude+", "+hit.longitude));
+      const use=element("button","Diese Daten übernehmen");use.type="button";
+      use.onclick=()=>{
+       if(hit.address)fields.address.value=hit.address;
+       if(hit.latitude!=null&&hit.longitude!=null){fields.latitude.value=hit.latitude;fields.longitude.value=hit.longitude}
+       if(hit.website&&!fields.website_url.value.trim())fields.website_url.value=hit.website;
+       addressMatches.replaceChildren(element("p","Angaben in die Felder übernommen. Bitte prüfen und „Änderungen speichern“ tippen."));
+      };
+      option.append(use);addressMatches.append(option);
+     }
+    }catch(e){addressMatches.replaceChildren(element("p","Adresssuche fehlgeschlagen: "+e.message))}
+    finally{findAddress.disabled=false}
+   };
    const info=element("p");info.setAttribute("role","status");form.append(info);
    const save=element("button","Änderungen speichern");save.type="submit";
    form.append(save);
