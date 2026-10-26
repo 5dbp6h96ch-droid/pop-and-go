@@ -339,7 +339,7 @@ async function loadAdminPublishedTheme(){
  try{const resp=await fetch("https://itaoljnqwoiifztjlfyc.supabase.co/rest/v1/published_design?select=published",{headers:{apikey:"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV"},cache:"no-store"});
  const data=await resp.json(),c=data?.[0]?.published;if(!c||!Object.values(c).every(x=>typeof x==="string"&&/^#[0-9a-f]{6}$/i.test(x)))return;
  const style=document.createElement("style");
- style.textContent=`body{background:${c.background};color:${c.text}}header{background:linear-gradient(115deg,${c.primary},${c.primary}dd)!important}form,.panel{background:${c.surface};border-color:${c.border}}button:not(.secondary){background:${c.primary}}button.secondary{background:${c.soft};color:${c.primary}}#proposal button[type=submit],#parseDictation{background:${c.accent}!important;color:${c.text}!important}`;
+ style.textContent=`body{background:${c.background};color:${c.text}}header{background:${c.primary}!important}form,.panel{background:${c.surface};border-color:${c.border}}button:not(.secondary){background:${c.primary}}button.secondary{background:${c.soft};color:${c.primary}}#proposal button[type=submit],#parseDictation{background:${c.accent}!important;color:${c.text}!important}`;
  document.head.append(style)
  }catch(e){console.warn("Design nicht geladen",e)}
 }
