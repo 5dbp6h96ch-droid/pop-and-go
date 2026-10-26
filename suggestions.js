@@ -399,7 +399,22 @@ function renderPlacesAdmin(){
      const result=await response.json();if(!response.ok)throw Error(result.error||"Suche fehlgeschlagen");
      addressMatches.replaceChildren();
      if(!result.results?.length){addressMatches.append(element("p","Keine passenden Adressen. Bitte manuell ergänzen."));return}
-     for(const hit of result.results){
+     const norm=t=>String(t||"").toLocaleLowerCase("de").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
+     const significant=norm(fields.name.value).split(" ").filter(w=>w.length>=3&&!["restaurant","cafe","bar","gasthaus","hotel","zum","zur","der","die","das"].includes(w));
+     const town=norm(fields.locality.value);
+     const matches=(result.results||[]).filter(hit=>{
+      const n=norm(hit.name),loc=norm(hit.locality+" "+hit.address);
+      return significant.length>0&&significant.every(w=>n.split(" ").some(x=>x===w||x.startsWith(w)&&w.length>=5))&&(!town||loc.includes(town));
+     });
+     if(!matches.length){
+      const warning=element("p","Kein eindeutig passender Ort gefunden. Allgemeine Treffer (z. B. Stadtzentren) werden aus Sicherheitsgründen nicht angeboten.");
+      addressMatches.append(warning);
+      if(fields.source_url.value.trim()){
+       const reference=element("a","Vorhandene Quelle zur Prüfung öffnen");reference.href=fields.source_url.value.trim();reference.target="_blank";reference.rel="noopener noreferrer";addressMatches.append(reference)
+      }
+      return;
+     }
+     for(const hit of matches){
       const option=element("div");option.className="item";
       option.append(element("strong",hit.name||""),element("p",hit.address||hit.locality||"Adresse unbekannt"));
       if(hit.latitude!=null&&hit.longitude!=null)option.append(element("small","GPS: "+hit.latitude+", "+hit.longitude));
