@@ -11,7 +11,7 @@ async function syncAppAuth(){
  }
  document.body.classList.remove("auth-locked");document.getElementById("appLogin").hidden=true;
  document.getElementById("accountLabel").textContent="Angemeldet als "+user.email;
- document.getElementById("openAdmin").hidden=!profile.is_admin;document.getElementById("openCategoryAssignment").hidden=!profile.is_admin;
+ document.getElementById("openAdmin").hidden=!profile.is_admin;
 }
 document.getElementById("appLoginForm").onsubmit=async event=>{
  event.preventDefault();const status=document.getElementById("appNotice");status.textContent="Anmeldung wird geprüft …";
@@ -28,5 +28,5 @@ document.getElementById("appSignup").onclick=async()=>{
 document.getElementById("switchAccount").onclick=async()=>{await authClient.auth.signOut();document.getElementById("appNotice").textContent="Du kannst dich jetzt mit einem anderen Konto anmelden.";document.getElementById("appPassword").value=""};
 document.getElementById("appLogout").onclick=async()=>{await authClient.auth.signOut();document.getElementById("newFrame").src="about:blank";document.getElementById("adminFrame").src="about:blank";location.reload()};
 document.getElementById("openAdmin").onclick=()=>{document.querySelectorAll("main section").forEach(s=>s.hidden=s.id!=="adminSection");document.getElementById("adminFrame").src="vorschlagen.html?mode=admin&embedded=1&v=46"};
-document.getElementById("openCategoryAssignment").onclick=()=>{document.querySelectorAll("main section").forEach(s=>s.hidden=s.id!=="adminSection");document.getElementById("adminFrame").src="vorschlagen.html?mode=admin&tab=places&embedded=1&v=46";};
+
 syncAppAuth().catch(error=>{document.getElementById("appNotice").textContent="Anmeldung konnte nicht geprüft werden: "+error.message});
