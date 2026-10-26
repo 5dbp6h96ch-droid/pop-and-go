@@ -128,7 +128,7 @@ async function listAdmin(){const box=$("adminList");box.replaceChildren();const 
  mapControls.append(external);
  const results=element("div");results.setAttribute("aria-live","polite");mapControls.append(results);
  const help=element("small","Treffer aus der vorhandenen Ortssuche auswählen oder auf die Karte tippen. Externe Maps-Apps übergeben ihren Pin nicht automatisch zurück.");mapControls.append(help);
- const mapBox=element("div");mapBox.style.cssText="height:300px;width:100%;border-radius:12px;margin:12px 0 16px;display:none";
+ const mapBox=element("div");mapBox.className="admin-map";mapBox.style.cssText="height:320px;width:100%;max-width:100%;border-radius:12px;margin:12px 0 16px;display:none;position:relative;overflow:hidden";
  mapControls.append(mapBox);form.append(mapButton,mapControls);
  let map=null,marker=null;
  function placeMarker(lat,lon){
@@ -137,7 +137,7 @@ async function listAdmin(){const box=$("adminList");box.replaceChildren();const 
    fields.edited_latitude.value=a.toFixed(6);fields.edited_longitude.value=b.toFixed(6);
    if(!map)return;
    if(marker)marker.setLatLng([a,b]);else marker=L.marker([a,b]).addTo(map);
-   map.setView([a,b],16);
+   map.setView([a,b],16);setTimeout(()=>map.invalidateSize(),60);
    msg("Position übernommen. Bitte speichern oder freigeben.");
  }
  function openMap(){
