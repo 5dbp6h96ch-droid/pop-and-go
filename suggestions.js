@@ -384,8 +384,9 @@ function renderPlacesAdmin(){
     const wrapper=element("label",label);const input=element(key==="notes"?"textarea":"input");
     if(key==="website_url"||key==="source_url")input.type="url";if(key==="email")input.type="email";
     if(key==="latitude"||key==="longitude")input.inputMode="decimal";
-    input.value=p[key]??"";wrapper.append(input);form.append(wrapper);fields[key]=input;
+    input.value=p[key]??"";input.dataset.placeField=key;if(key==="source_url")input.dataset.sourceUrl="true";wrapper.append(input);form.append(wrapper);fields[key]=input;
    }
+   const sourceButton=element("button","Quellen-Website auswerten");sourceButton.type="button";sourceButton.className="source-lookup secondary";const sourceResult=element("div");sourceResult.className="source-results";form.append(sourceButton,sourceResult);
    const findAddress=element("button","Adresse automatisch suchen");findAddress.type="button";findAddress.className="secondary";
    const addressMatches=element("div");addressMatches.setAttribute("aria-live","polite");
    form.append(findAddress,addressMatches);
