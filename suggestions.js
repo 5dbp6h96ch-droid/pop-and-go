@@ -387,6 +387,7 @@ function renderPlacesAdmin(){
     input.value=p[key]??"";input.dataset.placeField=key;if(key==="source_url")input.dataset.sourceUrl="true";wrapper.append(input);form.append(wrapper);fields[key]=input;
    }
    const sourceButton=element("button","Quellen-Website auswerten");sourceButton.type="button";sourceButton.className="source-lookup secondary";const sourceResult=element("div");sourceResult.className="source-results";form.append(sourceButton,sourceResult);
+   const gpsButton=element("button","GPS aus Adresse ermitteln");gpsButton.type="button";gpsButton.className="geocode-address secondary";const gpsResult=element("div");gpsResult.className="geocode-results";form.append(gpsButton,gpsResult);
    const findAddress=element("button","Adresse automatisch suchen");findAddress.type="button";findAddress.className="secondary";
    const addressMatches=element("div");addressMatches.setAttribute("aria-live","polite");
    form.append(findAddress,addressMatches);
