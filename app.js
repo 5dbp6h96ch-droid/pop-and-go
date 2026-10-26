@@ -11,7 +11,7 @@ async function loadPublishedDesign(){
  const keys=["background","surface","primary","accent","text","soft","border","nav"];
  if(!c||keys.some(k=>!/^#[0-9a-f]{6}$/i.test(c[k]||"")))return;
  const style=document.createElement("style");
- style.textContent=`body,main{background:${c.background}!important;color:${c.text}!important}:root{--violet:${c.primary};--lime:${c.accent};--lavender:${c.soft};--ink:${c.text}}header,#start{background:linear-gradient(125deg,${c.primary},${c.primary}dd)!important}.card,.filter-row{background:${c.surface}!important;border-color:${c.border}!important}.chips button:not(.active),.searchline select,#showMap{background:${c.soft}!important}.chips button.active{background:${c.primary}!important}.discover-actions #random,.card-footer a:first-child,.bottom-nav #navNew .nav-icon,#startDiscover{background:${c.accent}!important}.bottom-nav{background:${c.nav}!important}`;
+ style.textContent=`body,main{background:${c.background}!important;color:${c.text}!important}:root{--violet:${c.primary};--lime:${c.accent};--lavender:${c.soft};--ink:${c.text}}header,#start{background:${c.primary}!important}.card,.filter-row{background:${c.surface}!important;border-color:${c.border}!important}.chips button:not(.active),.searchline select,#showMap{background:${c.soft}!important}.chips button.active{background:${c.primary}!important}.discover-actions #random,.card-footer a:first-child,.bottom-nav #navNew .nav-icon,#startDiscover{background:${c.accent}!important}.bottom-nav{background:${c.nav}!important}`;
  document.head.append(style);
  }catch(error){console.warn("Design-Einstellungen nicht geladen",error)}
 }
