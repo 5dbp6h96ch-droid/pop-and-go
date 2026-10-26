@@ -21,10 +21,11 @@ document.getElementById("appLoginForm").onsubmit=async event=>{
 };
 document.getElementById("appSignup").onclick=async()=>{
  const email=document.getElementById("appEmail").value.trim(),password=document.getElementById("appPassword").value;
- if(!email||password.length<6){document.getElementById("appNotice").textContent="Bitte E-Mail und ein Passwort mit mindestens 6 Zeichen eingeben.";return}
+ if(!email||password.length<8){document.getElementById("appNotice").textContent="Bitte E-Mail und ein Passwort mit mindestens 8 Zeichen eingeben.";return}
  const {error}=await authClient.auth.signUp({email,password});
  document.getElementById("appNotice").textContent=error?"Registrierung fehlgeschlagen: "+error.message:"Registrierung angefragt. Bitte E-Mail-Bestätigung und Freigabe abwarten.";
 };
+document.getElementById("switchAccount").onclick=async()=>{await authClient.auth.signOut();document.getElementById("appNotice").textContent="Du kannst dich jetzt mit einem anderen Konto anmelden.";document.getElementById("appPassword").value=""};
 document.getElementById("appLogout").onclick=async()=>{await authClient.auth.signOut();document.getElementById("newFrame").src="about:blank";document.getElementById("adminFrame").src="about:blank";location.reload()};
 document.getElementById("openAdmin").onclick=()=>{document.querySelectorAll("main section").forEach(s=>s.hidden=s.id!=="adminSection");document.getElementById("adminFrame").src="vorschlagen.html?mode=admin&embedded=1&v=35"};
 syncAppAuth().catch(error=>{document.getElementById("appNotice").textContent="Anmeldung konnte nicht geprüft werden: "+error.message});
