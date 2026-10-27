@@ -3,14 +3,17 @@ const authClient=window.supabase.createClient("https://itaoljnqwoiifztjlfyc.supa
 async function syncAppAuth(){
  const {data:{user}}=await authClient.auth.getUser();
  if(!user){document.body.classList.add("auth-locked");document.getElementById("appLogin").hidden=false;return}
- const {data:profile,error}=await authClient.from("profiles").select("account_status,is_admin").eq("user_id",user.id).maybeSingle();
+ const {data:profile,error}=await authClient.from("profiles").select("account_status,is_admin,display_name").eq("user_id",user.id).maybeSingle();
  if(error||profile?.account_status!=="active"){
   document.body.classList.add("auth-locked");document.getElementById("appLogin").hidden=false;
   document.getElementById("appNotice").textContent=error?"Kontostatus konnte nicht geprüft werden.":profile?.account_status==="pending"?"Dein Konto wartet auf Freigabe.":"Dein Konto ist nicht freigeschaltet.";
   return;
  }
  document.body.classList.remove("auth-locked");document.getElementById("appLogin").hidden=true;
- document.getElementById("accountLabel").textContent="Angemeldet als "+user.email;
+ document.getElementById("accountLabel").textContent=user.email||"";
+ document.getElementById("profileName").textContent=profile.display_name?.trim()||"Mein Profil";
+ document.getElementById("accountRole").textContent=profile.is_admin?"Administrator":"Mitglied";
+ document.getElementById("adminArea").hidden=!profile.is_admin;
  document.getElementById("openAdmin").hidden=!profile.is_admin;
 }
 document.getElementById("appLoginForm").onsubmit=async event=>{
