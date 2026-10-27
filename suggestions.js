@@ -35,14 +35,13 @@ function navigateAdmin(view){
 $("adminBack").onclick=()=>navigateAdmin("dashboard");
 document.querySelectorAll("[data-admin-go]").forEach(b=>b.onclick=()=>navigateAdmin(b.dataset.adminGo));
 function showTab(tab){
- const active=profile?.account_status==="active",admin=active&&profile?.is_admin;
- const allowed=adminMode?(admin?(["admin","design","mine","places","categories"].includes(tab)?tab:"admin"):"none"):"proposal";
- $("proposal").hidden=!active||allowed!=="proposal";
- $("mine").hidden=!adminMode||!active||allowed!=="mine";
- $("admin").hidden=!adminMode||!admin||allowed!=="admin";$("design").hidden=!adminMode||!admin||allowed!=="design";$("placesAdmin").hidden=!adminMode||!admin||allowed!=="places";$("categoryAdmin").hidden=!adminMode||!admin||allowed!=="categories";
- for(const [name,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"],["design","tabDesign"],["places","tabPlaces"],["categories","tabCategories"]]){$(id).setAttribute("aria-selected",String(allowed===name))}
+ const active=profile?.account_status==="active";
+ const admin=adminMode&&active&&profile?.is_admin===true;
+ const allowed=admin?["admin","design","mine","places","categories"].includes(tab)?tab:"admin":"none";
+ $("proposal").hidden=!active||adminMode;
+ for(const [name,id] of [["mine","mine"],["admin","admin"],["design","design"],["places","placesAdmin"],["categories","categoryAdmin"]])
+  $(id).hidden=!admin||allowed!==name;
 }
-for(const [tab,id] of [["proposal","tabProposal"],["mine","tabMine"],["admin","tabAdmin"],["design","tabDesign"],["places","tabPlaces"],["categories","tabCategories"]])$(id).onclick=()=>{showTab(tab);if(tab==="design")openDesignStudio();if(tab==="categories"){loadPlacesAdmin().then(()=>$("categoryAdmin").scrollIntoView({block:"start"})).catch(e=>$("categoryAdminStatus").textContent=e.message)}if(tab==="places"){ $("placesSummary").textContent="Eintragsverwaltung wird geöffnet …";loadPlacesAdmin().catch(e=>$("placesSummary").textContent="Fehler: "+e.message) }};
 async function refresh(){
  const {data:{user:u}}=await db.auth.getUser();user=u;
  $("auth").hidden=!!u;$("logged").hidden=!u;
@@ -53,7 +52,7 @@ async function refresh(){
  const active=profile?.account_status==="active";
  $("pendingAccount").hidden=active;
  $("proposal").hidden=!active;
- $("tabNav").hidden=!adminMode||!active;$("tabProposal").hidden=adminMode;$("tabMine").hidden=!adminMode;$("tabAdmin").hidden=!(adminMode&&active&&profile?.is_admin);$("tabDesign").hidden=!(adminMode&&active&&profile?.is_admin);$("tabPlaces").hidden=!(adminMode&&active&&profile?.is_admin);$("tabCategories").hidden=!(adminMode&&active&&profile?.is_admin);showTab(adminMode?(new URLSearchParams(location.search).get("tab")==="categories"?"categories":new URLSearchParams(location.search).get("tab")==="places"?"places":"admin"):"proposal");if(adminMode&&profile?.is_admin&&new URLSearchParams(location.search).get("tab")==="places")loadPlacesAdmin().catch(e=>$("placesSummary").textContent=e.message);if(adminMode&&profile?.is_admin&&new URLSearchParams(location.search).get("tab")==="categories")loadPlacesAdmin().catch(e=>$("categoryAdminStatus").textContent=e.message);
+ showTab(adminMode?(new URLSearchParams(location.search).get("tab")==="categories"?"categories":new URLSearchParams(location.search).get("tab")==="places"?"places":"admin"):"proposal");if(adminMode&&profile?.is_admin&&new URLSearchParams(location.search).get("tab")==="places")loadPlacesAdmin().catch(e=>$("placesSummary").textContent=e.message);if(adminMode&&profile?.is_admin&&new URLSearchParams(location.search).get("tab")==="categories")loadPlacesAdmin().catch(e=>$("categoryAdminStatus").textContent=e.message);
  if(!active)msg("Konto noch nicht freigegeben. Anträge sind erst nach Administratorfreigabe möglich.");
  else msg(adminMode&&!profile?.is_admin?"Dieser Verwaltungsbereich ist ausschließlich für Administratoren zugänglich.":"");
  if(adminMode)await listMine();
