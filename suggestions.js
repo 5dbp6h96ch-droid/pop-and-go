@@ -44,11 +44,24 @@ function submitSmartSearch(){
  $("doSearch").click();
 }
 $("smartSearchButton").onclick=()=>{clearTimeout(smartSearchTimer);submitSmartSearch()};
+let autoRequest=0;
+async function showGeoSuggestions(term){
+ const token=++autoRequest,area=$("smartSuggestResults");
+ if(!area)return;
+ try{
+ const {data:{session}}=await db.auth.getSession();if(!session?.access_token)return;
+ const u="https://itaoljnqwoiifztjlfyc.supabase.co/functions/v1/popgo-place-search?mode=autocomplete&q="+encodeURIComponent(term);
+ const response=await fetch(u,{headers:{authorization:"Bearer "+session.access_token,apikey:"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV"}});
+ const data=await response.json();if(token!==autoRequest||term!==$("smartPlaceInput").value.trim())return;
+ area.replaceChildren();
+ for(const p of data.results||[]){if(!p.name)continue;const b=element("button",p.name+(p.locality?" · "+p.locality:""));b.type="button";b.className="secondary";b.onclick=()=>{$("smartPlaceInput").value=p.name+(p.locality?", "+p.locality:"");area.replaceChildren();submitSmartSearch()};area.append(b)}
+ }catch{if(token===autoRequest)area.replaceChildren()}
+}
 $("smartPlaceInput").addEventListener("input",()=>{
  clearTimeout(smartSearchTimer);
  const term=$("smartPlaceInput").value.trim();
  if(term.length<3){$("smartSearchStatus").textContent="";return}
- smartSearchTimer=setTimeout(submitSmartSearch,650);
+ smartSearchTimer=setTimeout(()=>showGeoSuggestions(term),500);
 });
 function suggestPlaceCategory(place){
  const tags=[place.category,place.type,place.categories?.label,place.name].filter(Boolean).join(" ").toLocaleLowerCase("de");
