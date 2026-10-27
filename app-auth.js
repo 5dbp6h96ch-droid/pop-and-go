@@ -39,6 +39,6 @@ async function submitRegistration(){
 signupButton.onclick=async()=>{setSignupMode(!signupMode);document.getElementById("appNotice").textContent="";if(signupMode)nameField.focus();};
 document.getElementById("switchAccount").onclick=async()=>{await authClient.auth.signOut();document.getElementById("appNotice").textContent="Du kannst dich jetzt mit einem anderen Konto anmelden.";document.getElementById("appPassword").value=""};
 document.getElementById("appLogout").onclick=async()=>{await authClient.auth.signOut();document.getElementById("newFrame").src="about:blank";document.getElementById("adminFrame").src="about:blank";location.reload()};
-document.getElementById("openAdmin").onclick=()=>{document.querySelectorAll("main section").forEach(s=>s.hidden=s.id!=="adminSection");document.getElementById("adminFrame").src="vorschlagen.html?mode=admin&embedded=1&v=46"};
+document.getElementById("openAdmin").onclick=()=>{document.querySelectorAll("main section").forEach(s=>s.hidden=s.id!=="adminSection");(()=>{const f=document.getElementById("adminFrame");const u=new URL("vorschlagen.html",location.href);u.searchParams.set("mode","admin");u.searchParams.set("embedded","1");u.searchParams.set("_build",document.querySelector('meta[name="app-build"]')?.content||"current");u.searchParams.set("_open",String(Date.now()));f.src=u.href})()};
 
 syncAppAuth().catch(error=>{document.getElementById("appNotice").textContent="Anmeldung konnte nicht geprüft werden: "+error.message});
