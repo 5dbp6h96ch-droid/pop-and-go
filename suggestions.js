@@ -69,14 +69,14 @@ function suggestPlaceCategory(place){
 }
 $("doSearch").onclick=async()=>{
  const term=$("searchPlace").value.trim();if(term.length<3){msg("Bitte einen Suchbegriff mit mindestens drei Zeichen eingeben.");return}
- const button=$("doSearch");button.disabled=true;msg("Suche nach passenden Orten …");const list=$("searchResults");list.replaceChildren();
+ const button=$("doSearch");button.disabled=true;msg("Suche nach passenden Orten …");const list=$("searchResults");list.replaceChildren();$("smartSuggestResults")?.replaceChildren();
  try{
  const {data:{session}}=await db.auth.getSession();if(!session?.access_token)throw Error("Bitte erneut anmelden");
  const response=await fetch("https://itaoljnqwoiifztjlfyc.supabase.co/functions/v1/popgo-place-search?q="+encodeURIComponent(term),{headers:{Authorization:"Bearer "+session.access_token,apikey:"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV"}});
  const payload=await response.json();if(term!==$("searchPlace").value.trim())return;if(!response.ok)throw Error(payload.error||"Suche fehlgeschlagen");
  if(!payload.results?.length){list.append(element("p","Keine passenden Orte gefunden. Du kannst die Idee manuell eingeben."));msg("Keine Treffer.");$("searchStatus").textContent="Kein Treffer. Angaben bitte manuell prüfen.";if(!$("livePlaceSearch")?.value.trim())showProposalPreview("Ohne Suchtreffer");return}
- for(const p of payload.results){const item=element("div");item.className="item";item.append(element("strong",p.name),element("p",p.address||p.locality||"Keine Adresse"));const b=element("button","Diesen Ort übernehmen");b.type="button";b.onclick=()=>{
- selectedPlace=p;$("siteFields").hidden=false;$("foundAddress").value=p.address||"";$("foundPhone").value=p.phone||"";$("foundEmail").value=p.email||"";$("name").value=p.name||"";$("locality").value=p.locality||"";$("website").value=p.website||"";const guessed=suggestPlaceCategory(p);if(guessed)$("category").value=guessed;else $("category").value="Sonstiges";$("manualDetails").open=true;
+ for(const p of payload.results){const item=element("div");item.className="item";item.append(element("strong",p.name),element("p",p.address||p.locality||"Keine Adresse"));if(/artrium/i.test(p.name)&&/leistadter stra(?:ße|sse)\s*25\b/i.test(p.address||"")){const warning=element("p","Achtung: Hausnummer 25 gehört möglicherweise zum Stammhaus. Bitte die Anschrift prüfen.");warning.style.color="#995000";item.append(warning)}const b=element("button","Diesen Ort übernehmen");b.type="button";b.onclick=()=>{
+ selectedPlace=p;$("smartSuggestResults")?.replaceChildren();$("siteFields").hidden=false;$("foundAddress").value=p.address||"";$("foundPhone").value=p.phone||"";$("foundEmail").value=p.email||"";$("name").value=p.name||"";$("locality").value=p.locality||"";$("website").value=p.website||"";const guessed=suggestPlaceCategory(p);if(guessed)$("category").value=guessed;else $("category").value="Sonstiges";$("manualDetails").open=true;
  $("selectedData").hidden=false;$("dataSummary").textContent=[p.address,p.phone,p.email,p.website,p.latitude!=null&&p.longitude!=null?"GPS: "+p.latitude+", "+p.longitude:""].filter(Boolean).join(" · ")||"Keine ergänzenden Daten verfügbar";
  showProposalPreview("Treffer übernommen");$("proposalPreview").scrollIntoView({block:"center",behavior:"smooth"})};
  item.append(b);list.append(item)}
