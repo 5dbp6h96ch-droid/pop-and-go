@@ -54,7 +54,7 @@ for(const btn of document.querySelectorAll("[data-view]"))btn.onclick=()=>{const
 async function loadOwnSuggestions(){
  const info=$("mySuggestionsHint");ownPlacesLoaded=false;ownPlacesError=false;info.textContent="Eigene Vorschläge werden geladen …";
  try{
-  const token=await window.authClient?.auth.getSession();const access=token?.data?.session?.access_token;
+  const token=await authClient.auth.getSession();const access=token?.data?.session?.access_token;
   if(!access)throw Error("Bitte zuerst anmelden.");
   const res=await fetch(API+"/rest/v1/rpc/my_approved_place_ids",{method:"POST",headers:{"apikey":KEY,"Authorization":"Bearer "+access,"Content-Type":"application/json"},body:"{}",cache:"no-store"});
   if(!res.ok)throw Error("Abfrage fehlgeschlagen ("+res.status+").");
