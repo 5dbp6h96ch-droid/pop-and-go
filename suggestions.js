@@ -20,12 +20,12 @@ function navigateAdmin(view){
  if(!adminMode||!profile?.is_admin)return;
  if(view==="dashboard"){showAdminDashboard();return}
  adminCurrentView=view;$("adminDashboard").hidden=true;$("adminSectionHeader").hidden=false;
- const names={members:"Mitgliederfreigaben",proposals:"Vorschläge prüfen",broadcast:"Push-Nachricht",places:"Einträge verwalten",categories:"Kategorien",design:"Design",mine:"Meine Ideen"};
+ const names={members:"Mitglieder",proposals:"Vorschläge prüfen",broadcast:"Push-Nachricht",places:"Einträge verwalten",categories:"Kategorien",design:"Design",mine:"Meine Ideen"};
  $("adminSectionTitle").textContent=names[view]||"Verwaltung";
  const tab=({members:"admin",proposals:"admin",broadcast:"admin",places:"places",categories:"categories",design:"design",mine:"mine"})[view]||"admin";
  showTab(tab);
  $("broadcastPanel").hidden=view!=="broadcast";$("membersList").hidden=view!=="members";$("adminList").hidden=view!=="proposals";
- $("admin").querySelectorAll("h2").forEach(x=>x.hidden=view==="members"?!/Mitgliederfreigaben/.test(x.textContent):view==="proposals"?!/Private Vorschlagsprüfung/.test(x.textContent):true);
+ $("admin").querySelectorAll("h2").forEach(x=>x.hidden=view==="members"?!/Mitgliederverwaltung/.test(x.textContent):view==="proposals"?!/Private Vorschlagsprüfung/.test(x.textContent):true);
  $("admin").querySelectorAll(":scope > p").forEach(x=>x.hidden=view!=="proposals");
  if(view==="places")loadPlacesAdmin().catch(e=>$("placesSummary").textContent=e.message);
  if(view==="categories")loadPlacesAdmin().catch(e=>$("categoryAdminStatus").textContent=e.message);
@@ -366,7 +366,35 @@ async function listAdmin(){const box=$("adminList");box.replaceChildren();const 
   catch(e){say("Ablehnung fehlgeschlagen: "+e.message);reject.disabled=false;rejectArmed=false;reject.textContent="Ablehnen"}
  };
  box.append(form)}}
-async function listMembers(){const box=$("membersList");if(!box)return;box.replaceChildren();try{const {members}=await adminApi("members");const activeRequests=members.filter(m=>m.account_status==="pending");if(!activeRequests.length){box.append(element("p","Keine offenen Registrierungsanträge."));return}for(const m of activeRequests){const row=element("div");row.className="item";row.append(element("strong",m.email||m.user_id));const accept=element("button","Konto freigeben"),deny=element("button","Ablehnen");deny.className="secondary";accept.type=deny.type="button";accept.onclick=async()=>{if(!confirm("Dieses Mitglied freigeben?"))return;try{await adminApi("member",{id:m.user_id,status:"active"});msg("Mitglied freigegeben.");await listMembers()}catch(e){msg(e.message)}};deny.onclick=async()=>{if(!confirm("Diesen Registrierungsantrag ablehnen?"))return;try{await adminApi("member",{id:m.user_id,status:"rejected"});msg("Registrierungsantrag abgelehnt.");await listMembers()}catch(e){msg(e.message)}};row.append(accept,deny);box.append(row)}}catch(e){msg("Mitglieder konnten nicht geladen werden: "+e.message)}}
+async function listMembers(){
+ const box=$("membersList");if(!box)return;box.replaceChildren();
+ try{
+  const {members}=await adminApi("members");
+  const all=Array.isArray(members)?members:[];
+  const statusLabel={active:"Aktiv",pending:"Freigabe ausstehend",rejected:"Abgelehnt",blocked:"Gesperrt",disabled:"Deaktiviert"};
+  const pending=all.filter(m=>m.account_status==="pending");
+  const other=all.filter(m=>m.account_status!=="pending").sort((a,b)=>String(a.email||a.user_id).localeCompare(String(b.email||b.user_id),"de"));
+  const heading=element("h3","Offene Freigaben ("+pending.length+")");box.append(heading);
+  if(!pending.length)box.append(element("p","Keine offenen Registrierungsanträge."));
+  for(const m of pending){
+   const row=element("div");row.className="item";row.append(element("strong",m.email||m.user_id));
+   const accept=element("button","Konto freigeben"),deny=element("button","Ablehnen");
+   deny.className="secondary";accept.type=deny.type="button";
+   accept.onclick=async()=>{if(!confirm("Dieses Mitglied freigeben?"))return;try{await adminApi("member",{id:m.user_id,status:"active"});msg("Mitglied freigegeben.");await listMembers()}catch(e){msg(e.message)}};
+   deny.onclick=async()=>{if(!confirm("Diesen Registrierungsantrag ablehnen?"))return;try{await adminApi("member",{id:m.user_id,status:"rejected"});msg("Registrierungsantrag abgelehnt.");await listMembers()}catch(e){msg(e.message)}};
+   row.append(accept,deny);box.append(row);
+  }
+  box.append(element("h3","Alle weiteren Mitglieder ("+other.length+")"));
+  if(!other.length)box.append(element("p","Keine weiteren Mitglieder vorhanden."));
+  for(const m of other){
+   const row=element("div");row.className="item";
+   const name=element("strong",m.email||m.user_id);
+   const status=element("p",(m.is_admin?"Administrator · ":"")+(statusLabel[m.account_status]||m.account_status||"Status unbekannt"));
+   status.style.cssText="margin:7px 0 0;font-size:14px;color:#716782";
+   row.append(name,status);box.append(row);
+  }
+ }catch(e){box.append(element("p","Mitglieder konnten nicht geladen werden: "+e.message))}
+}
 
 const designDefaults={background:"#F2F1EE",surface:"#FFFFFF",primary:"#7135F4",accent:"#D9FF38",text:"#24163C",soft:"#F0EAFF",border:"#DDD8E4",nav:"#FFFFFF"};
 const designLabels={background:"App-Hintergrund",surface:"Kacheln und Flächen",primary:"Hauptfarbe",accent:"Aktionsfarbe",text:"Textfarbe",soft:"Filterfarbe",border:"Rahmen",nav:"Navigation"};
