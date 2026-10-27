@@ -1,5 +1,32 @@
 "use strict";
 const authClient=window.supabase.createClient("https://itaoljnqwoiifztjlfyc.supabase.co","sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV",{auth:{persistSession:true,autoRefreshToken:true}});
+const pushWelcome=document.getElementById("pushOnboarding");
+const pushWelcomeStatus=document.getElementById("pushOnboardingStatus");
+const pushWelcomeInfo=document.getElementById("pushOnboardingInfo");
+const pushOnboardingDone=uid=>{try{return localStorage.getItem("popgo-push-welcome-"+uid)==="done"}catch{return false}};
+const markPushOnboardingDone=uid=>{try{localStorage.setItem("popgo-push-welcome-"+uid,"done")}catch{}};
+function showPushWelcome(uid){
+ if(!uid||pushOnboardingDone(uid)||!pushWelcome)return;
+ pushWelcome.hidden=false;pushWelcomeStatus.textContent="";
+ const ios=/iPad|iPhone|iPod/.test(navigator.userAgent);
+ if(ios&&!(window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true)){
+  pushWelcomeInfo.textContent="Auf dem iPhone sind Push-Nachrichten nur möglich, wenn du raus & guggen zum Home-Bildschirm hinzufügst und über das App-Symbol öffnest.";
+  pushWelcomeStatus.textContent="Danach kannst du Push hier aktivieren.";
+ }else pushWelcomeInfo.textContent="Erlaube Push-Benachrichtigungen für Freigaben, Neuigkeiten und Freizeitideen.";
+ pushWelcome.dataset.userId=uid;
+}
+document.getElementById("pushOnboardingLater").onclick=()=>{markPushOnboardingDone(pushWelcome.dataset.userId);pushWelcome.hidden=true};
+document.getElementById("pushOnboardingEnable").onclick=async()=>{
+ const btn=document.getElementById("pushOnboardingEnable");
+ btn.disabled=true;pushWelcomeStatus.textContent="Push wird eingerichtet …";
+ try{
+  if(!window.popgoPush?.activate)throw Error("Push ist noch nicht bereit.");
+  await window.popgoPush.activate();
+  markPushOnboardingDone(pushWelcome.dataset.userId);
+  pushWelcome.hidden=true;
+ }catch(e){pushWelcomeStatus.textContent=e.message||"Aktivierung nicht möglich."}
+ finally{btn.disabled=false}
+};
 async function syncAppAuth(){
  const {data:{user}}=await authClient.auth.getUser();
  if(!user){document.body.classList.add("auth-locked");document.getElementById("appLogin").hidden=false;return}
@@ -16,6 +43,7 @@ async function syncAppAuth(){
  document.getElementById("adminArea").hidden=!profile.is_admin;
  document.getElementById("openAdmin").hidden=!profile.is_admin;
  document.getElementById("adminUsersLink").hidden=!profile.is_admin;
+ showPushWelcome(user.id);
  if(profile.is_admin&&location.hash==="#verwaltung")document.getElementById("openAdmin").click();
 }
 document.getElementById("appLoginForm").onsubmit=async event=>{
@@ -34,7 +62,7 @@ async function submitRegistration(){
  if(!email||password.length<8){document.getElementById("appNotice").textContent="Bitte E-Mail und ein Passwort mit mindestens 8 Zeichen eingeben.";return}
  const {error}=await authClient.auth.signUp({email,password,options:{data:{display_name}}});
  document.getElementById("appNotice").textContent=error?"Registrierung fehlgeschlagen: "+error.message:"Registrierung angefragt. Bitte E-Mail-Bestätigung und Freigabe abwarten.";
- if(!error)setSignupMode(false);
+ if(!error){setSignupMode(false);document.getElementById("appNotice").textContent+=" Push lässt sich nach der Kontofreigabe bei der ersten Anmeldung direkt einschalten. Auf dem iPhone muss die App vom Home-Bildschirm gestartet werden.";}
 }
 signupButton.onclick=async()=>{setSignupMode(!signupMode);document.getElementById("appNotice").textContent="";if(signupMode)nameField.focus();};
 document.getElementById("switchAccount").onclick=async()=>{await authClient.auth.signOut();document.getElementById("appNotice").textContent="Du kannst dich jetzt mit einem anderen Konto anmelden.";document.getElementById("appPassword").value=""};
