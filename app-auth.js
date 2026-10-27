@@ -15,6 +15,7 @@ async function syncAppAuth(){
  document.getElementById("accountRole").textContent=profile.is_admin?"Administrator":"Mitglied";
  document.getElementById("adminArea").hidden=!profile.is_admin;
  document.getElementById("openAdmin").hidden=!profile.is_admin;
+ document.getElementById("adminUsersLink").hidden=!profile.is_admin;
 }
 document.getElementById("appLoginForm").onsubmit=async event=>{
  event.preventDefault();const status=document.getElementById("appNotice");status.textContent="Anmeldung wird geprüft …";
