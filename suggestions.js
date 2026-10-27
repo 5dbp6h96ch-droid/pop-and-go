@@ -179,7 +179,7 @@ function interpretDictation(raw){
  rest=rest.replace(/^(?:ich (?:schlage|empfehle)\s+)?(?:das |den |die |ein |eine )?(?:restaurant|café|cafe|biergarten|ausflugsziel|aktivität|weinstube|gasthaus)\s*/i,"");
  const category=/\b(café|cafe|kaffeehaus)\b/i.test(text)?"Café":/\b(restaurant|essen|italiener|grieche|gasthaus|weinstube|biergarten)\b/i.test(text)?"Restaurant":/\b(wanderung|museum|klettern|aktivität|ausflug|besichtigung)\b/i.test(text)?"Aktivität":"Sonstiges";
  const match=rest.match(/\b(?:in|bei)\s+([A-ZÄÖÜ][\p{L}äöüß.-]*(?:\s+[A-ZÄÖÜ][\p{L}äöüß.-]*)?)(?=\s*(?:[.,;!?]|\s+(?:vor\b|mit\b|dort\b|weil\b|das\b|die\b|der\b|hat\b))|$)/u);
- const locality=match?.[1]||"";
+ const locality=(match?.[1]||"").replace(/\s+(?:Restaurant|Café|Cafe|Gasthaus|Kneipe|Hotel|Kiosk|Museum|Bar)$/i,"").trim();
  let name=(match?rest.slice(0,match.index):rest).replace(/\b(?:vorschlagen|empfehlen|vor|besuchen)\b.*$/i,"").replace(/^(?:namens|heißt|das|den|die|ein|eine)\s+/i,"").replace(/[.,;!?\s]+$/,"").trim();
  name=name.replace(/^(?:ich\s+)?(?:schlage|empfehle)\s+(?:das|den|die)?\s*/i,"").trim();
  if(/^(ich|wir|man|es)\b/i.test(name))name="";
