@@ -18,6 +18,7 @@ async function loadPublishedDesign(){
 loadPublishedDesign();
 
 let places=[],categories=[],category="Alle",search="",sort="asc",selectedLocality="",radius="",map=null;
+let ownSuggestionsOnly=false,ownPlaceIds=new Set(),ownPlacesLoaded=false,ownPlacesError=false;
 let favorites;try{favorites=new Set(JSON.parse(localStorage.getItem("popgo-favorites-v1")||"[]"))}catch{favorites=new Set()}
 const node=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==null)e.textContent=text;if(cls)e.className=cls;return e};
 function distanceKm(a,b,c,d){const rad=Math.PI/180,dl=(c-a)*rad,dn=(d-b)*rad,x=Math.sin(dl/2)**2+Math.cos(a*rad)*Math.cos(c*rad)*Math.sin(dn/2)**2;return 12742*Math.asin(Math.min(1,Math.sqrt(x)))}
@@ -25,7 +26,7 @@ function validGps(p){return p.latitude!=null&&p.longitude!=null&&Number.isFinite
 function originCoords(){const matches=places.filter(p=>p.locality===selectedLocality&&validGps(p));if(!matches.length)return null;return [matches.reduce((v,p)=>v+Number(p.latitude),0)/matches.length,matches.reduce((v,p)=>v+Number(p.longitude),0)/matches.length]}
 function current(){
  const q=search.toLocaleLowerCase("de"),center=radius&&selectedLocality?originCoords():null;
- return places.filter(p=>(category==="Alle"||p.categories?.label===category)&&(radius||!selectedLocality||p.locality===selectedLocality)&&[p.name,p.locality,p.notes||"",p.categories?.label||""].join(" ").toLocaleLowerCase("de").includes(q)&&(!radius||(center&&validGps(p)&&distanceKm(center[0],center[1],Number(p.latitude),Number(p.longitude))<=Number(radius))))
+ return places.filter(p=>(!ownSuggestionsOnly||ownPlaceIds.has(p.id))&&(category==="Alle"||p.categories?.label===category)&&(radius||!selectedLocality||p.locality===selectedLocality)&&[p.name,p.locality,p.notes||"",p.categories?.label||""].join(" ").toLocaleLowerCase("de").includes(q)&&(!radius||(center&&validGps(p)&&distanceKm(center[0],center[1],Number(p.latitude),Number(p.longitude))<=Number(radius))))
  .sort((a,b)=>sort==="locality"?(a.locality||"").localeCompare(b.locality||"","de")||a.name.localeCompare(b.name,"de"):(sort==="asc"?1:-1)*a.name.localeCompare(b.name,"de"))
 }
 function link(url,text,cls){const a=node("a",text,cls);a.href=url;a.target="_blank";a.rel="noopener noreferrer";return a}
@@ -50,6 +51,19 @@ function chooseMapPlace(p){const panel=$("mapPlace");panel.replaceChildren();pan
 function renderUnmapped(){const list=current().filter(p=>p.latitude==null||p.longitude==null);$("unmappedCount").textContent=list.length+" ohne Marker";$("unmappedList").replaceChildren(...(list.length?list.map(p=>{const box=node("article",null,"card");box.append(node("strong",p.name),node("p",p.address||p.locality||"Kein Standort angegeben","sub"));const a=link(appleMaps(p),p.address?"Adresse in Apple Karten suchen":"Ort in Apple Karten suchen","external-link");box.append(a);return box}):[node("p","Alle gefilterten Orte sind auf der Karte.","empty")]))}
 function drawMap(){renderUnmapped();if(typeof L==="undefined"){$("mapCount").textContent="Kartenbibliothek nicht verfügbar";return}if(!map){map=L.map("map",{scrollWheelZoom:false}).setView([49.45,8.55],9);L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap contributors",maxZoom:18}).addTo(map)}map.eachLayer(layer=>{if(layer instanceof L.Marker)map.removeLayer(layer)});const pins=[];for(const p of current()){if(p.latitude==null||p.longitude==null)continue;const latitude=Number(p.latitude),longitude=Number(p.longitude);if(!Number.isFinite(latitude)||!Number.isFinite(longitude))continue;const m=L.marker([latitude,longitude]).addTo(map);const box=node("div");box.append(node("strong",p.name),node("p",p.locality||""));box.append(link(appleMaps(p),"Apple Karten öffnen"));m.bindPopup(box);pins.push(m)}$("mapCount").textContent=pins.length+" Orte mit Koordinaten";if(pins.length)map.fitBounds(L.featureGroup(pins).getBounds().pad(.18),{maxZoom:12});setTimeout(()=>map.invalidateSize(),30)}
 for(const btn of document.querySelectorAll("[data-view]"))btn.onclick=()=>{const view=btn.dataset.view;document.querySelectorAll("main section").forEach(s=>s.hidden=s.id!==view);document.querySelectorAll("[data-view]").forEach(b=>{b.classList.toggle("active",b===btn);if(b===btn)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});if(view==="mapping")setTimeout(drawMap,40)};
+async function loadOwnSuggestions(){
+ const info=$("mySuggestionsHint");ownPlacesLoaded=false;ownPlacesError=false;info.textContent="Eigene Vorschläge werden geladen …";
+ try{
+  const token=await window.authClient?.auth.getSession();const access=token?.data?.session?.access_token;
+  if(!access)throw Error("Bitte zuerst anmelden.");
+  const res=await fetch(API+"/rest/v1/rpc/my_approved_place_ids",{method:"POST",headers:{"apikey":KEY,"Authorization":"Bearer "+access,"Content-Type":"application/json"},body:"{}",cache:"no-store"});
+  if(!res.ok)throw Error("Abfrage fehlgeschlagen ("+res.status+").");
+  const rows=await res.json();ownPlaceIds=new Set(rows.map(r=>r.place_id));ownPlacesLoaded=true;
+  info.textContent=ownPlaceIds.size+" eigene freigegebene Vorschläge";render();
+ }catch(error){ownPlacesError=true;info.textContent=error.message;render()}
+}
+$("mySuggestionsOnly").onchange=event=>{ownSuggestionsOnly=event.target.checked;if(ownSuggestionsOnly)loadOwnSuggestions();else{$("mySuggestionsHint").textContent="";render()}};
+document.querySelector('[data-view="discover"]')?.addEventListener("click",()=>{if(ownSuggestionsOnly)loadOwnSuggestions()});
 $("query").oninput=e=>{search=e.target.value.trim();render()};$("sort").onchange=e=>{sort=e.target.value;render()};
 $("localityFilter").onchange=e=>{selectedLocality=e.target.value;if(radius&&!selectedLocality){radius="";$("radiusFilter").value=""}updateRadiusHint();render()};
 $("radiusFilter").onchange=e=>{radius=e.target.value;if(radius&&!selectedLocality){radius="";e.target.value="";$("radiusHint").textContent="Bitte zuerst einen Ort als Ausgangspunkt auswählen.";return}updateRadiusHint();render()};
