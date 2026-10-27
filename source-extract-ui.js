@@ -18,11 +18,18 @@ document.addEventListener("click",async event=>{
   output.replaceChildren();
   output.append(document.createTextNode("Gefundene Angaben einzeln prüfen und übernehmen:"));
   for(const [name,title,values] of [["address","Adresse",data.addresses],["phone","Telefon",data.phones],["email","E-Mail",data.emails]]){
-   for(const value of values||[]){
+   for(const item of values||[]){
+    const value=typeof item==="string"?item:item?.value;
+    if(!value)continue;
     const row=document.createElement("div");row.className="item";
     const label=document.createElement("p");label.textContent=title+": "+value;
+    const sourceUrl=typeof item==="object"?item.source:"";
+    if(sourceUrl){const sourceLink=document.createElement("a");sourceLink.textContent="Fundstelle prüfen";sourceLink.href=sourceUrl;sourceLink.target="_blank";sourceLink.rel="noopener noreferrer";row.append(sourceLink)}
+    if(name==="address"&&typeof item==="object"&&!item.complete){
+      const warning=document.createElement("p");warning.textContent="Straße, Hausnummer oder Postleitzahl fehlt – nicht als vollständige Adresse übernehmen.";row.append(label,warning);output.append(row);continue;
+    }
     const take=document.createElement("button");take.type="button";take.textContent="Übernehmen";
-    take.onclick=()=>{const field=form.querySelector('[data-place-field="'+name+'"]');if(field)field.value=value;take.disabled=true;take.textContent="Übernommen – noch nicht gespeichert"};
+    take.onclick=()=>{const field=form.querySelector('[data-place-field="'+name+'"]');if(field){field.value=value;if(name==="address")form.querySelector('[data-place-field="latitude"]')&&(form.querySelector('[data-place-field="latitude"]').value="");if(name==="address")form.querySelector('[data-place-field="longitude"]')&&(form.querySelector('[data-place-field="longitude"]').value="");}take.disabled=true;take.textContent="Übernommen – noch nicht gespeichert"};
     row.append(label,take);output.append(row);
    }
   }
