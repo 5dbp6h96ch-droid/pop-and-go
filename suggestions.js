@@ -41,8 +41,8 @@ $("doSearch").onclick=async()=>{
  try{
  const {data:{session}}=await db.auth.getSession();if(!session?.access_token)throw Error("Bitte erneut anmelden");
  const response=await fetch("https://itaoljnqwoiifztjlfyc.supabase.co/functions/v1/popgo-place-search?q="+encodeURIComponent(term),{headers:{Authorization:"Bearer "+session.access_token,apikey:"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV"}});
- const payload=await response.json();if(!response.ok)throw Error(payload.error||"Suche fehlgeschlagen");
- if(!payload.results?.length){list.append(element("p","Keine passenden Orte gefunden. Du kannst die Idee manuell eingeben."));msg("Keine Treffer.");$("searchStatus").textContent="Kein Treffer. Angaben bitte manuell prüfen.";showProposalPreview("Ohne Suchtreffer");return}
+ const payload=await response.json();if(term!==$("searchPlace").value.trim())return;if(!response.ok)throw Error(payload.error||"Suche fehlgeschlagen");
+ if(!payload.results?.length){list.append(element("p","Keine passenden Orte gefunden. Du kannst die Idee manuell eingeben."));msg("Keine Treffer.");$("searchStatus").textContent="Kein Treffer. Angaben bitte manuell prüfen.";if(!$("livePlaceSearch")?.value.trim())showProposalPreview("Ohne Suchtreffer");return}
  for(const p of payload.results){const item=element("div");item.className="item";item.append(element("strong",p.name),element("p",p.address||p.locality||"Keine Adresse"));const b=element("button","Diesen Ort übernehmen");b.type="button";b.onclick=()=>{
  selectedPlace=p;$("siteFields").hidden=false;$("foundAddress").value=p.address||"";$("foundPhone").value=p.phone||"";$("foundEmail").value=p.email||"";$("name").value=p.name||"";$("locality").value=p.locality||"";$("website").value=p.website||"";
  $("selectedData").hidden=false;$("dataSummary").textContent=[p.address,p.phone,p.email,p.website,p.latitude!=null&&p.longitude!=null?"GPS: "+p.latitude+", "+p.longitude:""].filter(Boolean).join(" · ")||"Keine ergänzenden Daten verfügbar";
