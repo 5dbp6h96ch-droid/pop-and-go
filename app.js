@@ -62,7 +62,7 @@ async function loadOwnSuggestions(){
   info.textContent=ownPlaceIds.size+" eigene freigegebene Vorschläge";render();
  }catch(error){ownPlacesError=true;info.textContent=error.message;render()}
 }
-$("mySuggestionsOnly").onchange=event=>{ownSuggestionsOnly=event.target.checked;if(ownSuggestionsOnly)loadOwnSuggestions();else{$("mySuggestionsHint").textContent="";render()}};
+$("mySuggestionsOnly").onclick=()=>{ownSuggestionsOnly=!ownSuggestionsOnly;const button=$("mySuggestionsOnly");button.classList.toggle("active",ownSuggestionsOnly);button.setAttribute("aria-pressed",String(ownSuggestionsOnly));if(ownSuggestionsOnly)loadOwnSuggestions();else{$("mySuggestionsHint").textContent="";render()}};
 document.querySelector('[data-view="discover"]')?.addEventListener("click",()=>{if(ownSuggestionsOnly)loadOwnSuggestions()});
 $("query").oninput=e=>{search=e.target.value.trim();render()};$("sort").onchange=e=>{sort=e.target.value;render()};
 $("localityFilter").onchange=e=>{selectedLocality=e.target.value;if(radius&&!selectedLocality){radius="";$("radiusFilter").value=""}updateRadiusHint();render()};
