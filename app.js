@@ -64,7 +64,7 @@ async function loadOwnSuggestions(){
 }
 $("mySuggestionsOnly").onclick=()=>{ownSuggestionsOnly=!ownSuggestionsOnly;const button=$("mySuggestionsOnly");button.classList.toggle("active",ownSuggestionsOnly);button.setAttribute("aria-pressed",String(ownSuggestionsOnly));if(ownSuggestionsOnly)loadOwnSuggestions();else{$("mySuggestionsHint").textContent="";render()}};
 document.querySelector('[data-view="discover"]')?.addEventListener("click",()=>{if(ownSuggestionsOnly)loadOwnSuggestions()});
-$("query").oninput=e=>{search=e.target.value.trim();render()};$("sort").onchange=e=>{sort=e.target.value;render()};
+
 $("localityFilter").onchange=e=>{selectedLocality=e.target.value;if(radius&&!selectedLocality){radius="";$("radiusFilter").value=""}updateRadiusHint();render()};
 $("radiusFilter").onchange=e=>{radius=e.target.value;if(radius&&!selectedLocality){radius="";e.target.value="";$("radiusHint").textContent="Bitte zuerst einen Ort als Ausgangspunkt auswählen.";return}updateRadiusHint();render()};
 function updateRadiusHint(){$("radiusHint").textContent=radius?(originCoords()?"Umkreis um die ungefähre Mitte der vorhandenen Orte in "+selectedLocality+". Einträge ohne GPS werden ausgeblendet.":"Für diesen Ort fehlen Koordinaten; bitte Umkreis auf Unbegrenzt setzen."):""}
