@@ -116,14 +116,45 @@ $("doSearch").onclick=async()=>{
  const response=await fetch("https://itaoljnqwoiifztjlfyc.supabase.co/functions/v1/popgo-place-search?q="+encodeURIComponent(term),{headers:{Authorization:"Bearer "+session.access_token,apikey:"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV"}});
  const payload=await response.json();if(term!==$("searchPlace").value.trim())return;if(!response.ok)throw Error(payload.error||"Suche fehlgeschlagen");
  if(!payload.results?.length){list.append(element("p","Keine passenden Orte gefunden. Du kannst die Idee manuell eingeben."));msg("Keine Treffer.");$("searchStatus").textContent="Kein Treffer. Angaben bitte manuell prüfen.";if(!$("livePlaceSearch")?.value.trim())showProposalPreview("Ohne Suchtreffer");return}
- const businessQuery=payload.results.some(p=>p.name&&p.name.toLocaleLowerCase("de").includes(term.split(/[,\s]+/)[0].toLocaleLowerCase("de"))&&p.kind!=="Bereits in Pop & Go");
- const candidates=businessQuery?payload.results.filter(p=>{const type=String(p.kind||"").toLowerCase(),n=String(p.name||"").toLocaleLowerCase("de"),t=term.toLocaleLowerCase("de");return !(type==="city"||type==="town"||type==="village"||type==="county"||type==="state"||type==="locality"||(!n.includes(t.split(/[,\s]+/)[0])&&t.length>8&&/^[^,]+,\s*[^,]+$/.test(t)&&n===t.split(",").pop().trim()))}):payload.results;
+ const normalized=v=>String(v||"").toLocaleLowerCase("de").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/ß/g,"ss").replace(/[^a-z0-9]+/g," ").trim();
+ const source=$("dictation").value.trim();
+ const parsed=interpretDictation(source);
+ const zip=(term.match(/\b\d{5}\b/)||source.match(/\b\d{5}\b/))?.[0]||"";
+ const locality=normalized(parsed.locality||$("locality").value);
+ const name=normalized(parsed.name||$("name").value).replace(/^(restaurant|cafe|gasthaus) /,"").trim();
+ const terms=name.split(" ").filter(w=>w.length>=3&&w!=="restaurant").slice(0,5);
+ const results=payload.results.filter(p=>{
+  const k=normalized(p.kind),n=normalized(p.name),addr=normalized([p.address,p.locality].filter(Boolean).join(" "));
+  if(["city","town","village","county","state","locality","municipality"].includes(k))return false;
+  if(zip&&/\b\d{5}\b/.test(addr)&&!addr.includes(zip))return false;
+  if(locality&&addr&&!addr.includes(locality)&&!n.includes(locality))return false;
+  if(terms.length&&!terms.some(t=>n.includes(t)))return false;
+  return true;
+ });
+ const ranked=results.map(p=>{
+  const n=normalized(p.name),a=normalized([p.address,p.locality].filter(Boolean).join(" "));
+  let score=0;
+  if(name&&n===name)score+=20;
+  if(name&&n.includes(name))score+=12;
+  score+=terms.filter(t=>n.includes(t)).length*4;
+  if(zip&&a.includes(zip))score+=12;
+  if(locality&&a.includes(locality))score+=10;
+  if(normalized(p.kind)==="bereits in pop go")score+=6;
+  return {p,score};
+ }).sort((a,b)=>b.score-a.score);
+ const candidates=ranked.slice(0,5).map(x=>x.p);
+ if(!candidates.length){
+   list.append(element("p","Kein passender Betrieb am genannten Ort gefunden. Bitte Namen und Postleitzahl prüfen oder die Angaben unter „Weitere Angaben“ manuell ergänzen."));
+   $("searchStatus").textContent="Kein eindeutiger Treffer am gewünschten Ort.";
+   $("smartSearchStatus").textContent="Kein passender Betrieb gefunden.";
+   return;
+ }
  for(const p of candidates){const item=element("div");item.className="item";item.append(element("strong",p.name),element("p",p.address||p.locality||"Keine Adresse"));if(/artrium/i.test(p.name)&&/leistadter stra(?:ße|sse)\s*25\b/i.test(p.address||"")){const warning=element("p","Achtung: Hausnummer 25 gehört möglicherweise zum Stammhaus. Bitte die Anschrift prüfen.");warning.style.color="#995000";item.append(warning)}const b=element("button","Diesen Ort übernehmen");b.type="button";b.onclick=()=>{
  selectedPlace=p;list.replaceChildren();list.hidden=true;$("dictationLabel").textContent="Persönliche Notiz (optional)";$("dictation").placeholder="Was hat dir an diesem Ort gefallen?";$("smartSearchStatus").textContent=""; $("smartSuggestResults")?.replaceChildren();$("siteFields").hidden=false;$("foundAddress").value=p.address||"";$("foundPhone").value=p.phone||"";$("foundEmail").value=p.email||"";$("name").value=p.name||"";$("locality").value=p.locality||"";$("website").value=p.website||"";const guessed=suggestPlaceCategory(p);if(guessed)$("category").value=guessed;else $("category").value="Sonstiges";$("manualDetails").open=false;
  $("selectedData").hidden=false;$("dataSummary").textContent=[p.address,p.phone,p.email,p.website,p.latitude!=null&&p.longitude!=null?"GPS: "+p.latitude+", "+p.longitude:""].filter(Boolean).join(" · ")||"Keine ergänzenden Daten verfügbar";
  $("proposalPreview").hidden=true;$("dictation").scrollIntoView({block:"center",behavior:"smooth"})};
  item.append(b);list.append(item)}
- msg(candidates.length+" Treffer gefunden. Bitte den richtigen auswählen.");$("searchStatus").textContent=candidates.length+" mögliche Treffer – passenden Ort antippen.";$("smartSearchStatus").textContent=candidates.length+" Treffer – passenden Betrieb auswählen.";
+ msg(candidates.length+" passende Treffer. Bitte den richtigen auswählen.");$("searchStatus").textContent=candidates.length+" mögliche Treffer – passenden Ort antippen.";$("smartSearchStatus").textContent=candidates.length+" Treffer – passenden Betrieb auswählen.";
  }catch(error){msg("Ortsrecherche fehlgeschlagen: "+error.message);$("searchStatus").textContent="Suche derzeit nicht verfügbar. Du kannst den Vorschlag trotzdem einreichen.";showProposalPreview("Ohne Suchtreffer")}finally{button.disabled=false}
 };
 $("enrichSite").onclick=async()=>{
@@ -163,7 +194,8 @@ function processIdeaDescription(){
  if(parsed.locality&&!$("locality").value.trim())$("locality").value=parsed.locality;
  if(parsed.category!=="Sonstiges")$("category").value=parsed.category;
  if(!$("note").value.trim())$("note").value=raw.slice(0,1000);
- const query=[parsed.name||$("name").value.trim(),parsed.locality||$("locality").value.trim()].filter(Boolean).join(" ").trim();
+ const postcode=raw.match(/\b\d{5}\b/)?.[0]||"";
+ const query=[parsed.name||$("name").value.trim(),postcode,parsed.locality||$("locality").value.trim()].filter(Boolean).join(" ").trim();
  if(query.length>=3){
   $("searchPlace").value=query.slice(0,100);
   
