@@ -9,6 +9,7 @@ document.getElementById("checkAppVersion")?.addEventListener("click",()=>check(t
 renderVersion("Suche nach Updates …");function refreshEmbeddedFrames(){
  for(const f of document.querySelectorAll("#newFrame,#adminFrame")){
   try{
+   if(f.getAttribute("src")==="about:blank")continue;
    const dest=new URL(f.getAttribute("src"),location.href);
    if(dest.searchParams.get("_build")===BUILD)continue;
    const d=f.contentDocument;
