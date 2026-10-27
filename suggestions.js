@@ -58,7 +58,7 @@ async function showGeoSuggestions(term){
  for(const p of data.results||[]){
   if(!p.name)continue;
   const address=String(p.address||"").trim(),locality=String(p.locality||"").trim();
-  const key=[p.name,address||locality].map(v=>v.toLocaleLowerCase("de").normalize("NFKC").replace(/\\s+/g," ").trim()).join("|");
+  const key=[p.name,locality].map(v=>v.toLocaleLowerCase("de").normalize("NFKC").replace(/\s+/g," ").trim()).join("|");
   if(seen.has(key))continue;seen.add(key);
   const b=element("button");b.type="button";b.className="secondary";
   b.append(element("strong",p.name));
