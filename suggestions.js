@@ -35,6 +35,25 @@ async function refresh(){
 $("login").onsubmit=async e=>{e.preventDefault();msg("Anmeldung wird geprüft …");const {error}=await db.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});if(error){msg("Anmeldung fehlgeschlagen: "+error.message);return}await refresh()};
 $("signup").onclick=async()=>{const email=$("email").value.trim(),password=$("password").value;if(!email||password.length<8){msg("Bitte E-Mail und Passwort mit mindestens acht Zeichen eingeben.");return}const {error}=await db.auth.signUp({email,password});msg(error?"Registrierung fehlgeschlagen: "+error.message:"Registrierung beantragt. Bitte bestätige gegebenenfalls die E-Mail und warte auf Administratorfreigabe.")};
 $("logout").onclick=async()=>{await db.auth.signOut();await refresh();msg("Abgemeldet.")};
+let smartSearchTimer=null;
+function submitSmartSearch(){
+ const input=$("smartPlaceInput"),term=input?.value.trim()||"";
+ if(term.length<3){$("smartSearchStatus").textContent="Mindestens drei Zeichen eingeben.";return}
+ $("searchPlace").value=term;
+ $("smartSearchStatus").textContent="Suche nach passenden Orten …";
+ $("doSearch").click();
+}
+$("smartSearchButton").onclick=()=>{clearTimeout(smartSearchTimer);submitSmartSearch()};
+$("smartPlaceInput").addEventListener("input",()=>{
+ clearTimeout(smartSearchTimer);
+ const term=$("smartPlaceInput").value.trim();
+ if(term.length<3){$("smartSearchStatus").textContent="";return}
+ smartSearchTimer=setTimeout(submitSmartSearch,650);
+});
+function suggestPlaceCategory(place){
+ const tags=[place.category,place.type,place.categories?.label,place.name].filter(Boolean).join(" ").toLocaleLowerCase("de");
+ return /café|cafe|coffee/.test(tags)?"Café":/restaurant|gasthaus|weinstube|biergarten|bistro|essen/.test(tags)?"Restaurant":/museum|schloss|burg|aussicht|sehenswürdigkeit|tourism/.test(tags)?"Ausflugsziel":/klettern|schwimmen|sport|aktivität/.test(tags)?"Aktivität":null;
+}
 $("doSearch").onclick=async()=>{
  const term=$("searchPlace").value.trim();if(term.length<3){msg("Bitte einen Suchbegriff mit mindestens drei Zeichen eingeben.");return}
  const button=$("doSearch");button.disabled=true;msg("Suche nach passenden Orten …");const list=$("searchResults");list.replaceChildren();
@@ -44,11 +63,11 @@ $("doSearch").onclick=async()=>{
  const payload=await response.json();if(term!==$("searchPlace").value.trim())return;if(!response.ok)throw Error(payload.error||"Suche fehlgeschlagen");
  if(!payload.results?.length){list.append(element("p","Keine passenden Orte gefunden. Du kannst die Idee manuell eingeben."));msg("Keine Treffer.");$("searchStatus").textContent="Kein Treffer. Angaben bitte manuell prüfen.";if(!$("livePlaceSearch")?.value.trim())showProposalPreview("Ohne Suchtreffer");return}
  for(const p of payload.results){const item=element("div");item.className="item";item.append(element("strong",p.name),element("p",p.address||p.locality||"Keine Adresse"));const b=element("button","Diesen Ort übernehmen");b.type="button";b.onclick=()=>{
- selectedPlace=p;$("siteFields").hidden=false;$("foundAddress").value=p.address||"";$("foundPhone").value=p.phone||"";$("foundEmail").value=p.email||"";$("name").value=p.name||"";$("locality").value=p.locality||"";$("website").value=p.website||"";
+ selectedPlace=p;$("siteFields").hidden=false;$("foundAddress").value=p.address||"";$("foundPhone").value=p.phone||"";$("foundEmail").value=p.email||"";$("name").value=p.name||"";$("locality").value=p.locality||"";$("website").value=p.website||"";const guessed=suggestPlaceCategory(p);if(guessed)$("category").value=guessed;else $("category").value="Sonstiges";$("manualDetails").open=true;
  $("selectedData").hidden=false;$("dataSummary").textContent=[p.address,p.phone,p.email,p.website,p.latitude!=null&&p.longitude!=null?"GPS: "+p.latitude+", "+p.longitude:""].filter(Boolean).join(" · ")||"Keine ergänzenden Daten verfügbar";
  showProposalPreview("Treffer übernommen");$("proposalPreview").scrollIntoView({block:"center",behavior:"smooth"})};
  item.append(b);list.append(item)}
- msg(payload.results.length+" Treffer gefunden. Bitte den richtigen auswählen.");$("searchStatus").textContent=payload.results.length+" mögliche Treffer – passenden Ort antippen.";
+ msg(payload.results.length+" Treffer gefunden. Bitte den richtigen auswählen.");$("searchStatus").textContent=payload.results.length+" mögliche Treffer – passenden Ort antippen.";$("smartSearchStatus").textContent=payload.results.length+" Treffer – passenden Betrieb auswählen.";
  }catch(error){msg("Ortsrecherche fehlgeschlagen: "+error.message);$("searchStatus").textContent="Suche derzeit nicht verfügbar. Du kannst den Vorschlag trotzdem einreichen.";showProposalPreview("Ohne Suchtreffer")}finally{button.disabled=false}
 };
 $("enrichSite").onclick=async()=>{
