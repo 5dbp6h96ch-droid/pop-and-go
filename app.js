@@ -64,6 +64,10 @@ $("showMap").onclick=()=>{
 $("backDiscover").onclick=()=>document.querySelector('[data-view="discover"]')?.click();
 $("navNew").onclick=()=>{document.querySelectorAll("main section").forEach(section=>section.hidden=section.id!=="newSection");document.querySelectorAll(".bottom-nav button").forEach(button=>{button.classList.toggle("active",button.id==="navNew");button.removeAttribute("aria-current")});$("navNew").setAttribute("aria-current","page");};
 $("navNew").click();
+// iOS may restore a suspended home-screen app without reloading the document.
+let appWasHidden=document.visibilityState==="hidden";
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"){appWasHidden=true;return}if(appWasHidden){appWasHidden=false;$("navNew").click()}});
+window.addEventListener("pageshow",event=>{if(event.persisted)$("navNew").click()});
 $("surpriseClose").onclick=()=>$("surpriseDialog").close();$("surpriseDialog").addEventListener("click",e=>{if(e.target===$("surpriseDialog"))$("surpriseDialog").close()});
 $("startDiscover").onclick=()=>document.querySelector('[data-view="discover"]')?.click();
 $("random").onclick=()=>{
