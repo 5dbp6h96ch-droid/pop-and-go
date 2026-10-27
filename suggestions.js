@@ -457,15 +457,9 @@ function renderPlacesAdmin(){
       option.append(element("strong",hit.name||""),element("p",hit.address||hit.locality||"Adresse unbekannt"));
       // PLZ und Ortsname allein sind keine vollständige Straßenanschrift.
       const address=String(hit.address||"").trim();
-      const stripped=address.replace(/\\b(?:D-)?\\d{5}\\b/g," ").replace(new RegExp(fields.locality.value.trim().replace(/[.*+?^${}()|[\\]\\\\]/g,"\\\\      if(hit.latitude!=null&&hit.longitude!=null)option.append(element("small","GPS: "+hit.latitude+", "+hit.longitude));
-      const use=element("button","Diese Daten übernehmen");use.type="button";
-      use.onclick=()=>{
-       if(hit.address)fields.address.value=hit.address;
-       if(hit.latitude!=null&&hit.longitude!=null){fields.latitude.value=hit.latitude;fields.longitude.value=hit.longitude}
-       if(hit.website&&!fields.website_url.value.trim())fields.website_url.value=hit.website;
-       addressMatches.replaceChildren(element("p","Angaben in die Felder übernommen. Bitte prüfen und „Änderungen speichern“ tippen."));
-      };"),"ig")," ").replace(/Deutschland|Germany/ig," ").replace(/[,:;\\-]/g," ").trim();
-      const streetWithNumber=/(?:^|\\s)[\\p{L}][\\p{L} .'-]{2,}\\s+\\d{1,4}[a-zA-Z]?(?:\\s|$)/u.test(stripped);
+      const townName=String(fields.locality.value||"").trim().toLocaleLowerCase("de");
+      const stripped=address.replace(/\b(?:D-)?\d{5}\b/g," ").replace(/Deutschland|Germany/ig," ").split(",").filter(part=>part.trim().toLocaleLowerCase("de")!==townName).join(" ").trim();
+      const streetWithNumber=/(?:^|\s)[\p{L}][\p{L} .'-]{2,}\s+\d{1,4}[a-zA-Z]?(?:\s|$)/u.test(stripped);
       if(!streetWithNumber)option.append(element("p","Unvollständige Adresse: Straße und Hausnummer fehlen. Bitte die offizielle Betreiberwebsite prüfen. GPS wird nicht übernommen."));
       else if(hit.latitude!=null&&hit.longitude!=null)option.append(element("small","GPS: "+hit.latitude+", "+hit.longitude+" (Treffer vor Übernahme prüfen)"));
       const use=element("button",streetWithNumber?"Vollständige Adresse übernehmen":"Website prüfen statt Adresse übernehmen");use.type="button";
