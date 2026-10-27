@@ -95,8 +95,12 @@ document.addEventListener("click",event=>{
  const current=website.value.trim();
  if(current&&current!==url.href&&!window.confirm("Die bisherige Website ersetzen?"))return;
  website.value=url.href;
- if(!source.value.trim())source.value=url.href;
- status.textContent="Website in den Entwurf übernommen, noch nicht gespeichert. Kontaktdaten können jetzt separat ausgewertet werden.";
+ // Die Website-Auswertung muss dieselbe, gerade gewählte Betreiberseite verwenden.
+ source.value=url.href;
+ input.value=url.href;
+ website.dispatchEvent(new Event("input",{bubbles:true}));
+ source.dispatchEvent(new Event("input",{bubbles:true}));
+ status.textContent="Website und Quellenadresse übernommen: "+url.href+" — noch nicht gespeichert. Bitte anschließend „Änderungen speichern“ wählen.";
  const extract=form.querySelector(".source-lookup");
  if(extract){extract.scrollIntoView({block:"nearest",behavior:"smooth"});extract.focus();}
 });
