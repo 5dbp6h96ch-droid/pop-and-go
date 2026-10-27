@@ -14,9 +14,12 @@ function render(){
  $("users").replaceChildren();
  for(const m of hits){
  const card=el("article","");card.className="user-card";
- card.append(el("h3",m.display_name||m.email||"Unbenannt"),el("p",m.email||""),el("p",(m.is_admin?"Administrator":"Mitglied")+" · "+m.account_status),el("small","Registriert: "+(m.created_at?new Date(m.created_at).toLocaleDateString("de-DE"):"unbekannt")));if(m.last_sign_in_at)card.append(el("small","Letzte Anmeldung: "+new Date(m.last_sign_in_at).toLocaleString("de-DE")));
+ card.append(el("h3",m.display_name||m.email||"Unbenannt"),el("p",m.email||""),el("p",(m.is_admin?"Administrator":"Mitglied")+" · "+m.account_status));
+ const meta=el("div","");meta.className="user-meta";meta.append(el("small","Registriert: "+(m.created_at?new Date(m.created_at).toLocaleDateString("de-DE"):"unbekannt")));if(m.last_sign_in_at)meta.append(el("small","Letzte Anmeldung: "+new Date(m.last_sign_in_at).toLocaleString("de-DE")));card.append(meta);
+ const actions=el("div","");actions.className="user-actions";
  if(!m.is_admin)for(const [status,label] of (m.account_status==="pending"?[["active","Freigeben"],["rejected","Ablehnen"]]:m.account_status==="active"?[["suspended","Sperren"]]:[["active","Aktivieren"]])){
- const b=el("button",label);b.onclick=async()=>{if(!confirm("Benutzer "+label.toLowerCase()+"?"))return;b.disabled=true;try{await api("member",{id:m.user_id,status});await load()}catch(e){$("status").textContent=e.message;b.disabled=false}};card.append(b)}
+ const b=el("button",label);b.onclick=async()=>{if(!confirm("Benutzer "+label.toLowerCase()+"?"))return;b.disabled=true;try{await api("member",{id:m.user_id,status});await load()}catch(e){$("status").textContent=e.message;b.disabled=false}};actions.append(b)}
+ if(actions.childElementCount)card.append(actions);
  $("users").append(card);
  }
  if(!hits.length)$("users").append(el("p","Keine Benutzer gefunden."));
