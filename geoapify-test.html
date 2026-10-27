@@ -34,7 +34,26 @@ async function run(mode){
  const loc=center.results?.[0];if(!loc)throw Error("Suchgebiet nicht gefunden");
  const params={categories:$("category").value,filter:"circle:"+loc.lon+","+loc.lat+","+$("radius").value,limit:20,lang:"de",apiKey:key};
  if(name)params.name=name;
- const data=await get(requestUrl("/v2/places",params));draw(data.features||[],mode);
+ let data=await get(requestUrl("/v2/places",params));
+ let hits=data.features||[];
+ if(!hits.length&&name){
+  // Names can differ between business listings. Broaden the lookup automatically.
+  delete params.name;
+  params.limit=100;
+  const broad=await get(requestUrl("/v2/places",params));
+  hits=broad.features||[];
+  const tokens=name.toLocaleLowerCase("de").split(/[^\\p{L}\\p{N}]+/u).filter(t=>t.length>=4);
+  const scored=hits.map(hit=>{
+   const text=[hit.properties?.name,hit.properties?.formatted,hit.properties?.address_line1].filter(Boolean).join(" ").toLocaleLowerCase("de");
+   return {hit,score:tokens.filter(t=>text.includes(t)).length};
+  }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
+  if(scored.length){hits=scored.map(x=>x.hit);$("state").textContent="Namensfilter ergab 0 Treffer; ähnliche Einträge aus der Umgebung werden angezeigt."}
+  else {$("state").textContent="Kein Namensmatch. Anzeige von Orten der gewählten Kategorie im Suchradius."; }
+ }
+ draw(hits,mode);
+ if(name&&!data.features?.length){
+  const info=document.createElement("p");info.className="meta";info.textContent="Hinweis: Die direkte Places-Namenssuche ergab keinen Treffer. Die angezeigten Ergebnisse stammen aus einer erweiterten Umkreissuche; die Auswahl ist manuell zu prüfen."; $("results").prepend(info);
+ }
  }
  }catch(e){$("state").textContent="Suche fehlgeschlagen: "+e.message;$("results").textContent=""}
  finally{buttons.forEach(b=>b.disabled=false)}
