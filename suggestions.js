@@ -489,6 +489,7 @@ function renderPlacesAdmin(){
     ev.preventDefault();save.disabled=true;info.textContent="Speichere …";
     try{
      const values={};for(const key of Object.keys(fields)){let value=fields[key].value.trim();values[key]=key==="category_id"?(value||null):(key==="latitude"||key==="longitude")?(value===""?null:Number(value)):value}
+     if(Object.values(values).some(v=>typeof v==="string"&&/\\[object Object\\]/i.test(v)))throw Error("Ungültiger Datenwert erkannt. Bitte Website-Auswertung erneut ausführen.");
      if(!values.name)throw Error("Name darf nicht leer sein.");
      const res=await placesApi("update",{id:p.id,fields:values,expected_updated_at:p.updated_at});
      Object.assign(p,res.place);info.textContent="Gespeichert.";renderPlacesAdmin()
