@@ -14,7 +14,7 @@ function render(){
  $("users").replaceChildren();
  for(const m of hits){
  const card=el("article","");card.className="user-card";
- card.append(el("h3",m.display_name||m.email||"Unbenannt"),el("p",m.email||""),el("p",(m.is_admin?"Administrator":"Mitglied")+" · "+m.account_status),el("small","Registriert: "+new Date(m.created_at).toLocaleDateString("de-DE")));
+ card.append(el("h3",m.display_name||m.email||"Unbenannt"),el("p",m.email||""),el("p",(m.is_admin?"Administrator":"Mitglied")+" · "+m.account_status),el("small","Registriert: "+(m.created_at?new Date(m.created_at).toLocaleDateString("de-DE"):"unbekannt")));if(m.last_sign_in_at)card.append(el("small","Letzte Anmeldung: "+new Date(m.last_sign_in_at).toLocaleString("de-DE")));
  if(!m.is_admin)for(const [status,label] of (m.account_status==="pending"?[["active","Freigeben"],["rejected","Ablehnen"]]:m.account_status==="active"?[["suspended","Sperren"]]:[["active","Aktivieren"]])){
  const b=el("button",label);b.onclick=async()=>{if(!confirm("Benutzer "+label.toLowerCase()+"?"))return;b.disabled=true;try{await api("member",{id:m.user_id,status});await load()}catch(e){$("status").textContent=e.message;b.disabled=false}};card.append(b)}
  $("users").append(card);
