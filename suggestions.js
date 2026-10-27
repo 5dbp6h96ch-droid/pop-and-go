@@ -15,6 +15,7 @@ function showAdminDashboard(){
  $("broadcastPanel").hidden=false;$("membersList").hidden=false;$("adminList").hidden=false;
  $("admin").querySelectorAll("h2").forEach(x=>x.hidden=false);
  $("admin").querySelectorAll(":scope > p").forEach(x=>x.hidden=false);
+ if(window.parent!==window)window.parent.postMessage({type:"popgo-admin-ready"} ,location.origin);
 }
 function navigateAdmin(view){
  if(!adminMode||!profile?.is_admin)return;
@@ -52,11 +53,12 @@ async function refresh(){
  const active=profile?.account_status==="active";
  $("pendingAccount").hidden=active;
  $("proposal").hidden=!active;
- showTab(adminMode?(new URLSearchParams(location.search).get("tab")==="categories"?"categories":new URLSearchParams(location.search).get("tab")==="places"?"places":"admin"):"proposal");if(adminMode&&profile?.is_admin&&new URLSearchParams(location.search).get("tab")==="places")loadPlacesAdmin().catch(e=>$("placesSummary").textContent=e.message);if(adminMode&&profile?.is_admin&&new URLSearchParams(location.search).get("tab")==="categories")loadPlacesAdmin().catch(e=>$("categoryAdminStatus").textContent=e.message);
+ if(!adminMode)showTab("proposal");else for(const id of ["admin","mine","design","placesAdmin","categoryAdmin"])$(id).hidden=true;if(adminMode&&profile?.is_admin&&new URLSearchParams(location.search).get("tab")==="places")loadPlacesAdmin().catch(e=>$("placesSummary").textContent=e.message);if(adminMode&&profile?.is_admin&&new URLSearchParams(location.search).get("tab")==="categories")loadPlacesAdmin().catch(e=>$("categoryAdminStatus").textContent=e.message);
  if(!active)msg("Konto noch nicht freigegeben. Anträge sind erst nach Administratorfreigabe möglich.");
  else msg(adminMode&&!profile?.is_admin?"Dieser Verwaltungsbereich ist ausschließlich für Administratoren zugänglich.":"");
+ if(adminMode&&active&&profile?.is_admin){const initial=new URLSearchParams(location.search).get("tab");if(initial==="places"||initial==="categories")navigateAdmin(initial);else showAdminDashboard()}
  if(adminMode)await listMine();
- if(adminMode&&active&&profile?.is_admin){await listAdmin();await listMembers()}if(adminMode&&active&&profile?.is_admin){const initial=new URLSearchParams(location.search).get("tab");if(initial==="places"||initial==="categories")navigateAdmin(initial);else showAdminDashboard()}
+ if(adminMode&&active&&profile?.is_admin){await listAdmin();await listMembers()}
 }
 $("login").onsubmit=async e=>{e.preventDefault();msg("Anmeldung wird geprüft …");const {error}=await db.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});if(error){msg("Anmeldung fehlgeschlagen: "+error.message);return}await refresh()};
 $("signup").onclick=async()=>{const email=$("email").value.trim(),password=$("password").value;if(!email||password.length<8){msg("Bitte E-Mail und Passwort mit mindestens acht Zeichen eingeben.");return}const {error}=await db.auth.signUp({email,password});msg(error?"Registrierung fehlgeschlagen: "+error.message:"Registrierung beantragt. Bitte bestätige gegebenenfalls die E-Mail und warte auf Administratorfreigabe.")};
