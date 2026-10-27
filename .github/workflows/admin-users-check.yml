@@ -1,0 +1,39 @@
+name: Admin user overview checks
+on:
+  pull_request:
+    paths:
+      - 'admin-users.js'
+      - 'admin-users.html'
+      - 'app-auth.js'
+      - 'index.html'
+      - 'supabase/functions/popgo-admin/**'
+      - '.github/workflows/admin-users-check.yml'
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check admin-users.js
+          node --check app-auth.js
+      - name: Verify user-management integration
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('index.html','utf8');
+          const page=fs.readFileSync('admin-users.html','utf8');
+          const auth=fs.readFileSync('app-auth.js','utf8');
+          const backend=fs.readFileSync('supabase/functions/popgo-admin/index.ts','utf8');
+          for(const [ok,label] of [
+            [html.includes('id="adminUsersLink"'),'Navigation'],
+            [auth.includes('getElementById("adminUsersLink").hidden=!profile.is_admin'),'Admin visibility'],
+            [page.includes('admin-users.js'),'Page script'],
+            [backend.includes('profile?.is_admin!==true'),'Server-side permission'],
+            [backend.includes('auth.admin.listUsers'),'All accounts'],
+            [backend.includes('target.is_admin'),'Admin protection']
+          ]){if(!ok)throw Error(label);console.log('PASS:',label)}
+          NODE
