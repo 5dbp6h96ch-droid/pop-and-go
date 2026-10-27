@@ -7,6 +7,33 @@ const msg=t=>$("msg").textContent=t;
 const esc=s=>String(s??"");
 function element(tag,label){const e=document.createElement(tag);if(label!==undefined)e.textContent=label;return e}
 function line(container,label,val){const p=element("p",label+": "+esc(val));container.append(p)}
+let adminCurrentView="dashboard";
+function showAdminDashboard(){
+ if(!adminMode||!profile?.is_admin||profile.account_status!=="active")return;
+ adminCurrentView="dashboard";$("adminDashboard").hidden=false;$("adminSectionHeader").hidden=true;
+ for(const id of ["admin","design","placesAdmin","categoryAdmin","mine"])$(id).hidden=true;
+ $("broadcastPanel").hidden=false;$("membersList").hidden=false;$("adminList").hidden=false;
+ $("admin").querySelectorAll("h2").forEach(x=>x.hidden=false);
+ $("admin").querySelectorAll(":scope > p").forEach(x=>x.hidden=false);
+}
+function navigateAdmin(view){
+ if(!adminMode||!profile?.is_admin)return;
+ if(view==="dashboard"){showAdminDashboard();return}
+ adminCurrentView=view;$("adminDashboard").hidden=true;$("adminSectionHeader").hidden=false;
+ const names={members:"Mitgliederfreigaben",proposals:"Vorschläge prüfen",broadcast:"Push-Nachricht",places:"Einträge verwalten",categories:"Kategorien",design:"Design",mine:"Meine Ideen"};
+ $("adminSectionTitle").textContent=names[view]||"Verwaltung";
+ const tab=({members:"admin",proposals:"admin",broadcast:"admin",places:"places",categories:"categories",design:"design",mine:"mine"})[view]||"admin";
+ showTab(tab);
+ $("broadcastPanel").hidden=view!=="broadcast";$("membersList").hidden=view!=="members";$("adminList").hidden=view!=="proposals";
+ $("admin").querySelectorAll("h2").forEach(x=>x.hidden=view==="members"?!/Mitgliederfreigaben/.test(x.textContent):view==="proposals"?!/Private Vorschlagsprüfung/.test(x.textContent):true);
+ $("admin").querySelectorAll(":scope > p").forEach(x=>x.hidden=view!=="proposals");
+ if(view==="places")loadPlacesAdmin().catch(e=>$("placesSummary").textContent=e.message);
+ if(view==="categories")loadPlacesAdmin().catch(e=>$("categoryAdminStatus").textContent=e.message);
+ if(view==="design")openDesignStudio();
+ $("adminSectionHeader").scrollIntoView({block:"start"});
+}
+$("adminBack").onclick=()=>navigateAdmin("dashboard");
+document.querySelectorAll("[data-admin-go]").forEach(b=>b.onclick=()=>navigateAdmin(b.dataset.adminGo));
 function showTab(tab){
  const active=profile?.account_status==="active",admin=active&&profile?.is_admin;
  const allowed=adminMode?(admin?(["admin","design","mine","places","categories"].includes(tab)?tab:"admin"):"none"):"proposal";
@@ -30,7 +57,7 @@ async function refresh(){
  if(!active)msg("Konto noch nicht freigegeben. Anträge sind erst nach Administratorfreigabe möglich.");
  else msg(adminMode&&!profile?.is_admin?"Dieser Verwaltungsbereich ist ausschließlich für Administratoren zugänglich.":"");
  if(adminMode)await listMine();
- if(adminMode&&active&&profile?.is_admin){await listAdmin();await listMembers()}
+ if(adminMode&&active&&profile?.is_admin){await listAdmin();await listMembers()}if(adminMode&&active&&profile?.is_admin){const initial=new URLSearchParams(location.search).get("tab");if(initial==="places"||initial==="categories")navigateAdmin(initial);else showAdminDashboard()}
 }
 $("login").onsubmit=async e=>{e.preventDefault();msg("Anmeldung wird geprüft …");const {error}=await db.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});if(error){msg("Anmeldung fehlgeschlagen: "+error.message);return}await refresh()};
 $("signup").onclick=async()=>{const email=$("email").value.trim(),password=$("password").value;if(!email||password.length<8){msg("Bitte E-Mail und Passwort mit mindestens acht Zeichen eingeben.");return}const {error}=await db.auth.signUp({email,password});msg(error?"Registrierung fehlgeschlagen: "+error.message:"Registrierung beantragt. Bitte bestätige gegebenenfalls die E-Mail und warte auf Administratorfreigabe.")};
