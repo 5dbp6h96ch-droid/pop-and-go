@@ -56,3 +56,79 @@ document.addEventListener("click",async event=>{
  }catch(error){out.textContent="GPS-Suche fehlgeschlagen: "+error.message}
  finally{button.disabled=false}
 });
+/* Manuelle, kostenlose Webrecherche für vorhandene Admin-Einträge.
+   Keine automatischen Änderungen: Website und extrahierte Werte werden nur nach Prüfung übernommen. */
+document.addEventListener("click",event=>{
+ const button=event.target.closest("#placesAdmin .web-research");
+ if(!button)return;
+ const form=button.closest("form"),panel=form?.querySelector(".web-research-panel");
+ if(!form||!panel)return;
+ panel.hidden=!panel.hidden;
+ if(panel.hidden)return;
+ const get=k=>form.querySelector('[data-place-field="'+k+'"]');
+ const name=get("name")?.value.trim()||"",locality=get("locality")?.value.trim()||"",address=get("address")?.value.trim()||"";
+ const query=[name,locality,address].filter(Boolean).join(" ");
+ const search=panel.querySelector(".web-research-search");
+ search.href="https://www.google.com/search?q="+encodeURIComponent(query+" offizielle Website Kontakt");
+ const url=panel.querySelector(".web-research-url");
+ url.value=get("website_url")?.value.trim()||"";
+ panel.querySelector(".web-research-status").textContent="Öffne die Suche, prüfe die offizielle Website und füge ihre Adresse hier ein.";
+});
+document.addEventListener("click",event=>{
+ const button=event.target.closest("#placesAdmin .web-research-apply");
+ if(!button)return;
+ const form=button.closest("form"),panel=button.closest(".web-research-panel");
+ if(!form||!panel)return;
+ const input=panel.querySelector(".web-research-url");
+ const status=panel.querySelector(".web-research-status");
+ const website=form.querySelector('[data-place-field="website_url"]');
+ const source=form.querySelector('[data-place-field="source_url"]');
+ let url;try{url=new URL(input.value.trim());if(url.protocol!=="https:"&&url.protocol!=="http:")throw Error();if(url.username||url.password)throw Error();}catch{status.textContent="Bitte eine gültige http(s)-Website-Adresse eingeben.";return}
+ if(!website||!source)return;
+ const current=website.value.trim();
+ if(current&&current!==url.href&&!window.confirm("Die bisherige Website ersetzen?"))return;
+ website.value=url.href;
+ if(!source.value.trim())source.value=url.href;
+ status.textContent="Website in den Entwurf übernommen, noch nicht gespeichert. Kontaktdaten können jetzt separat ausgewertet werden.";
+ const extract=form.querySelector(".source-lookup");
+ if(extract){extract.scrollIntoView({block:"nearest",behavior:"smooth"});extract.focus();}
+});
+document.addEventListener("click",event=>{
+ const button=event.target.closest("#placesAdmin .web-research-extract");
+ if(!button)return;
+ const form=button.closest("form"),panel=button.closest(".web-research-panel");
+ if(!form||!panel)return;
+ const website=form.querySelector('[data-place-field="website_url"]'),source=form.querySelector('[data-place-field="source_url"]');
+ const input=panel.querySelector(".web-research-url");
+ if(input.value.trim()&&website.value.trim()!==input.value.trim()){
+  panel.querySelector(".web-research-status").textContent="Bitte zuerst die Website übernehmen.";
+  return;
+ }
+ if(!source.value.trim()&&website.value.trim())source.value=website.value.trim();
+ const extract=form.querySelector(".source-lookup");
+ if(extract)extract.click();
+});
+document.addEventListener("click",event=>{
+ const button=event.target.closest("#placesAdmin .secondary");
+ if(!button||button.textContent.trim()!=="Bearbeiten")return;
+ // Der Bearbeitungsdialog entsteht synchron im bestehenden Handler.
+ queueMicrotask(()=>{
+  const form=button.closest(".item")?.querySelector("form");
+  if(!form||form.querySelector(".web-research"))return;
+  const extract=form.querySelector(".source-lookup");
+  if(!extract)return;
+  const open=document.createElement("button");
+  open.type="button";open.className="secondary web-research";open.textContent="Im Web recherchieren";
+  const panel=document.createElement("div");panel.className="web-research-panel";panel.hidden=true;
+  const title=document.createElement("strong");title.textContent="Offizielle Website finden";
+  const explain=document.createElement("p");explain.textContent="Die kostenlose Suche öffnet sich in einem neuen Tab. Vergleiche Name und Ort, bevor du die Betreiberwebsite übernimmst.";
+  const search=document.createElement("a");search.className="web-research-search";search.target="_blank";search.rel="noopener noreferrer";search.textContent="Websuche öffnen";search.href="https://www.google.com/search";
+  const label=document.createElement("label");label.textContent="Gefundene Internetadresse";
+  const url=document.createElement("input");url.className="web-research-url";url.type="url";url.inputMode="url";url.placeholder="https://www.beispiel.de";url.maxLength=500;label.append(url);
+  const apply=document.createElement("button");apply.type="button";apply.className="secondary web-research-apply";apply.textContent="Website übernehmen";
+  const evaluation=document.createElement("button");evaluation.type="button";evaluation.className="secondary web-research-extract";evaluation.textContent="Kontaktdaten auswerten";
+  const status=document.createElement("p");status.className="web-research-status";status.setAttribute("role","status");status.setAttribute("aria-live","polite");
+  panel.append(title,explain,search,label,apply,evaluation,status);
+  extract.before(open,panel);
+ });
+});
