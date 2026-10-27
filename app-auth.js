@@ -16,6 +16,7 @@ async function syncAppAuth(){
  document.getElementById("adminArea").hidden=!profile.is_admin;
  document.getElementById("openAdmin").hidden=!profile.is_admin;
  document.getElementById("adminUsersLink").hidden=!profile.is_admin;
+ if(profile.is_admin&&location.hash==="#verwaltung")document.getElementById("openAdmin").click();
 }
 document.getElementById("appLoginForm").onsubmit=async event=>{
  event.preventDefault();const status=document.getElementById("appNotice");status.textContent="Anmeldung wird geprüft …";
