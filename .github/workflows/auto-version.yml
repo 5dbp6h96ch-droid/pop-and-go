@@ -1,0 +1,43 @@
+name: Automatic app version
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+concurrency:
+  group: app-version-main
+  cancel-in-progress: false
+jobs:
+  bump-version:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - name: Refresh deployed version marker
+        env:
+          BUILD: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import json,os,pathlib,re
+          build=os.environ["BUILD"]
+          page=pathlib.Path("index.html")
+          html=page.read_text(encoding="utf-8")
+          meta=r'<meta name="app-build" content="[^"]*">'
+          new=f'<meta name="app-build" content="{build}">'
+          if not re.search(meta,html):
+              raise SystemExit("Missing app-build meta tag")
+          page.write_text(re.sub(meta,new,html,count=1),encoding="utf-8")
+          pathlib.Path("version.json").write_text(json.dumps({"version":build},indent=2)+"\n",encoding="utf-8")
+          PY
+      - name: Commit published version
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html version.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update published app version [skip ci]"
+            git push origin HEAD:main
+          fi
