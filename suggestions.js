@@ -52,7 +52,7 @@ $("doSearch").onclick=async()=>{
  }catch(error){msg("Ortsrecherche fehlgeschlagen: "+error.message);$("searchStatus").textContent="Suche derzeit nicht verfügbar. Du kannst den Vorschlag trotzdem einreichen.";showProposalPreview("Ohne Suchtreffer")}finally{button.disabled=false}
 };
 $("enrichSite").onclick=async()=>{
- const website=$("website").value.trim();if(!/^https:\/\//i.test(website)){msg("Bitte zuerst eine gültige HTTPS-Website eintragen.");return}
+ let website=$("website").value.trim();if(website&&!/^https?:\/\//i.test(website))website="https://"+website;try{const parsed=new URL(website);if(parsed.protocol!=="https:"||!parsed.hostname.includes("."))throw Error("invalid")}catch(error){msg("Bitte eine gültige Website eingeben, z. B. https://www.purino.de.");return}$("website").value=website;
  const button=$("enrichSite");button.disabled=true;msg("Website wird nach Kontaktdaten geprüft …");
  try{
  const {data:{session}}=await db.auth.getSession();if(!session?.access_token)throw Error("Bitte erneut anmelden.");
@@ -108,8 +108,10 @@ async function listAdmin(){const box=$("adminList");box.replaceChildren();const 
  form.append(scanButton,scanBox);
  let scanData=null;
  scanButton.onclick=async()=>{
-   const url=fields.edited_website.value.trim();
-   if(!/^https:\/\//i.test(url)){msg("Bitte zuerst eine HTTPS-Website eintragen.");return}
+   let url=fields.edited_website.value.trim();
+   if(url&&!/^https?:\/\//i.test(url))url="https://"+url;
+   try{const parsed=new URL(url);if(parsed.protocol!=="https:"||!parsed.hostname.includes("."))throw Error("invalid");}catch(error){scanBox.hidden=false;scanBox.replaceChildren(element("p","Bitte eine gültige Website eingeben, z. B. https://www.purino.de."));return}
+   fields.edited_website.value=url;
    scanButton.disabled=true;scanBox.hidden=false;scanBox.replaceChildren(element("p","Website wird ausgewertet …"));scanData=null;
    try{
      const {data:{session}}=await db.auth.getSession();if(!session?.access_token)throw Error("Bitte neu anmelden.");
