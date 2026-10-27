@@ -1,23 +1,24 @@
-name: Automatic app version
+name: Build and publish raus & guggen
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
   pages: write
+  id-token: write
 concurrency:
-  group: app-version-main
+  group: pages
   cancel-in-progress: false
 jobs:
-  bump-version:
-    if: github.actor != 'github-actions[bot]'
+  publish:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
-          persist-credentials: true
-      - name: Refresh deployed version marker
+      - name: Stamp build version into published files
         env:
           BUILD: ${{ github.sha }}
         run: |
@@ -27,23 +28,15 @@ jobs:
           page=pathlib.Path("index.html")
           html=page.read_text(encoding="utf-8")
           meta=r'<meta name="app-build" content="[^"]*">'
-          new=f'<meta name="app-build" content="{build}">'
           if not re.search(meta,html):
               raise SystemExit("Missing app-build meta tag")
-          page.write_text(re.sub(meta,new,html,count=1),encoding="utf-8")
+          page.write_text(re.sub(meta,f'<meta name="app-build" content="{build}">',html,count=1),encoding="utf-8")
           pathlib.Path("version.json").write_text(json.dumps({"version":build},indent=2)+"\n",encoding="utf-8")
           PY
-      - name: Commit published version
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html version.json
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: update published app version [skip ci]"
-            git push origin HEAD:main
-      - name: Request GitHub Pages rebuild from updated main
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api --method POST "repos/${{ github.repository }}/pages/builds" --silent
-          fi
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - name: Deploy GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
