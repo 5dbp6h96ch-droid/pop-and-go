@@ -371,7 +371,7 @@ async function listMembers(){
  try{
   const {members}=await adminApi("members");
   const all=Array.isArray(members)?members:[];
-  const statusLabel={active:"Aktiv",pending:"Freigabe ausstehend",rejected:"Abgelehnt",blocked:"Gesperrt",disabled:"Deaktiviert"};
+  const statusLabel={active:"Aktiv",pending:"Freigabe ausstehend",rejected:"Abgelehnt",suspended:"Gesperrt",blocked:"Gesperrt",disabled:"Deaktiviert"};
   const pending=all.filter(m=>m.account_status==="pending");
   const other=all.filter(m=>m.account_status!=="pending").sort((a,b)=>String(a.email||a.user_id).localeCompare(String(b.email||b.user_id),"de"));
   const heading=element("h3","Offene Freigaben ("+pending.length+")");box.append(heading);
@@ -391,7 +391,26 @@ async function listMembers(){
    const name=element("strong",m.email||m.user_id);
    const status=element("p",(m.is_admin?"Administrator · ":"")+(statusLabel[m.account_status]||m.account_status||"Status unbekannt"));
    status.style.cssText="margin:7px 0 0;font-size:14px;color:#716782";
-   row.append(name,status);box.append(row);
+   row.append(name,status);
+   if(!m.is_admin&&m.user_id!==user?.id){
+    const actions=element("div");actions.style.cssText="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px";
+    const operations=m.account_status==="active"
+       ?[{label:"Konto sperren",status:"suspended",confirm:"Dieses Mitglied sperren? Der Zugang wird deaktiviert."}]
+       :[{label:"Konto aktivieren",status:"active",confirm:"Dieses Mitglied wieder freigeben?"}];
+    if(m.account_status==="suspended")operations.push({label:"Ablehnen",status:"rejected",confirm:"Dieses Mitglied ablehnen?"});
+    for(const op of operations){
+     const btn=element("button",op.label);btn.type="button";btn.className="secondary";btn.style.cssText="width:auto;min-height:40px;margin:0;padding:9px 14px;font-size:14px";
+     btn.onclick=async()=>{
+      if(!confirm(op.confirm))return;
+      btn.disabled=true;
+      try{await adminApi("member",{id:m.user_id,status:op.status});msg("Mitgliedsstatus aktualisiert.");await listMembers()}
+      catch(e){msg("Änderung fehlgeschlagen: "+e.message);btn.disabled=false}
+     };
+     actions.append(btn);
+    }
+    row.append(actions);
+   }
+   box.append(row);
   }
  }catch(e){box.append(element("p","Mitglieder konnten nicht geladen werden: "+e.message))}
 }
