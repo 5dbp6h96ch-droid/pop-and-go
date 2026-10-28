@@ -45,6 +45,27 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build
 
+      - name: Boot simulator and launch app
+        working-directory: ios-app
+        run: |
+          set -euo pipefail
+          DEVICE=$(xcrun simctl list devices available | grep -E 'iPhone [0-9]+' | head -1 | sed -E 's/.*\\(([0-9A-F-]{36})\\).*/\\1/')
+          test -n "$DEVICE"
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          APP="build/Build/Products/Debug-iphonesimulator/App.app"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Info.plist")
+          xcrun simctl install "$DEVICE" "$APP"
+          xcrun simctl launch "$DEVICE" "$BUNDLE_ID"
+          xcrun simctl io "$DEVICE" screenshot ios-launch.png
+      - name: Upload simulator screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raus-und-guggen-ios-launch
+          path: ios-app/ios-launch.png
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Archive unsigned simulator application
         working-directory: ios-app
         run: |
