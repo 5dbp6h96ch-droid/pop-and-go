@@ -30,7 +30,7 @@ Deno.serve(async request=>{
  if(profile?.is_admin)return respond({error:"administrator_account_protected"},409);
  // Sender IDs in private broadcasts are NOT NULL / RESTRICT, so refuse deletion
  // if a former admin had sent broadcasts; this needs manual retention handling.
- const blocker=await admin.schema("app_private").from("admin_broadcasts").select("id",{head:true,count:"exact"}).eq("sender_id",user.id);
+ const blocker=await admin.schema("app_private").from("admin_broadcasts").select("sender_id",{head:true,count:"exact"}).eq("sender_id",user.id);
  if(blocker.error)return respond({error:"retention_check_failed"},500);
  if((blocker.count||0)>0)return respond({error:"broadcast_retention_requires_review"},409);
  // Nullable historical references must be anonymized before auth user deletion.
