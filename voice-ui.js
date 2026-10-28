@@ -2,12 +2,12 @@
 const $=id=>document.getElementById(id),input=$("dictation"),button=$("voiceStart"),status=$("voiceStatus"),label=$("voiceStartLabel");
 if(!input||!button||!status||!label)return;
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-let recognition=null,phase="idle",baseText="",interim="",finalText="",hadResult=false,manualStop=false,errorKind="",silenceTimer=null,hardTimer=null,stopTimer=null,session=0;
+let recognition=null,phase="idle",baseText="",interim="",finalText="",hadResult=false,manualStop=false,errorKind="",silenceTimer=null,hardTimer=null,stopTimer=null,recoveryTimer=null,lastRecognized="",session=0;
 const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
 const clearTimers=()=>{clearTimeout(silenceTimer);clearTimeout(hardTimer);clearTimeout(stopTimer);silenceTimer=null;hardTimer=null;stopTimer=null};
 const setPhase=(value)=>{phase=value;const running=value==="starting"||value==="listening"||value==="stopping";button.setAttribute("aria-pressed",String(running));label.textContent=value==="starting"?"Mikrofon wird gestartet …":value==="listening"?"Aufnahme beenden":value==="stopping"?"Verarbeite Sprache …":"Jetzt sprechen";button.disabled=value==="starting"||value==="stopping"};
 const commitText=()=>{
- const phrase=(finalText||interim).trim();if(!phrase)return false;
+ const phrase=(finalText||interim||lastRecognized).trim();if(!phrase)return false;
  const combined=[baseText,phrase].filter(Boolean).join(" ").trim();
  input.value=combined;input.dispatchEvent(new Event("input",{bubbles:true}));return true;
 };
@@ -30,7 +30,7 @@ function start(){
  if(!SR){status.textContent="Direkte Spracherkennung wird von diesem Browser nicht angeboten.";return}
  clearTimers();session++;const current=session;
  recognition=new SR();const r=recognition;
- baseText=input.value.trim();interim="";finalText="";hadResult=false;manualStop=false;errorKind="";
+ baseText=input.value.trim();interim="";finalText="";lastRecognized="";hadResult=false;manualStop=false;errorKind="";
  r.lang="de-DE";r.interimResults=true;r.continuous=false;r.maxAlternatives=1;
  r.onstart=()=>{
   if(current!==session||phase!=="starting")return;clearTimeout(stopTimer);stopTimer=null;setPhase("listening");
@@ -46,9 +46,9 @@ function start(){
    const item=e.results[i];const transcript=item&&item[0]&&item[0].transcript||"";
    (item.isFinal?finals:partials).push(transcript);
   }
-  finalText=finals.join(" ").trim();interim=partials.join(" ").trim();hadResult=!!(finalText||interim);
+  finalText=finals.join(" ").trim();interim=partials.join(" ").trim();if(finalText||interim)lastRecognized=[finalText,interim].filter(Boolean).join(" ").trim();hadResult=!!(finalText||interim||lastRecognized);
   if(hadResult){
-   const combined=[baseText,finalText,interim].filter(Boolean).join(" ").trim();
+   const combined=[baseText,finalText||lastRecognized,interim&&finalText?interim:""].filter(Boolean).join(" ").trim();
    input.value=combined;input.dispatchEvent(new Event("input",{bubbles:true}));
    status.textContent=finalText?"Erkannt: "+finalText:"Ich höre: "+interim;
    if(phase==="listening"){armSilence();if(finalText&&!interim)armSilence()}
@@ -73,5 +73,14 @@ button.addEventListener("click",()=>{if(phase==="listening")stop();else if(phase
 status.textContent=SR?"Einmal tippen und sprechen. Nach einer Sprechpause endet die Aufnahme automatisch.":"Spracherkennung ist hier nicht verfügbar.";
 window.addEventListener("pagehide",()=>{session++;clearTimers();try{recognition&&recognition.abort()}catch(e){}recognition=null});
 const discard=$("ideaDiscard");
-if(discard)discard.addEventListener("click",()=>{session++;clearTimers();try{recognition&&recognition.abort()}catch(e){}recognition=null;setPhase("idle")});
+if(discard)discard.addEventListener("click",()=>{
+ session++;clearTimers();clearTimeout(recoveryTimer);
+ const previous=recognition;recognition=null;baseText="";interim="";finalText="";lastRecognized="";hadResult=false;manualStop=false;errorKind="";
+ setPhase("starting");label.textContent="Mikrofon wird freigegeben …";status.textContent="Neue Aufnahme wird vorbereitet …";
+ // iOS can keep the native speech service busy briefly after abort().
+ // Do not permit an overlapping recognizer during that release period.
+ if(previous){try{previous.onresult=null;previous.onerror=null;previous.onstart=null;previous.onend=null;previous.abort()}catch(e){}}
+ const resetSession=session;
+ recoveryTimer=setTimeout(()=>{if(session!==resetSession)return;setPhase("idle");status.textContent="Bereit für eine neue Idee. Jetzt sprechen."},1000);
+});
 })();
