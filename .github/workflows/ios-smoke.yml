@@ -1,0 +1,35 @@
+name: iOS simulator smoke build
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'ios-app/**'
+      - '*.html'
+      - '*.js'
+      - '*.css'
+      - '*.svg'
+      - '*.png'
+      - '*.webmanifest'
+      - '.github/workflows/ios-smoke.yml'
+jobs:
+  ios-simulator:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Capacitor dependencies
+        working-directory: ios-app
+        run: npm install --no-audit --no-fund
+      - name: Generate unsigned iOS Xcode project
+        working-directory: ios-app
+        run: npm run ios:init
+      - name: Compile iOS Simulator app without signing
+        working-directory: ios-app
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
