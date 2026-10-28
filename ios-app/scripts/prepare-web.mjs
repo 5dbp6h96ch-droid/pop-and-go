@@ -22,7 +22,7 @@ for(const rel of tracked){
    source=source.replace('Dieses Gerät unterstützt keine Web-Push-Nachrichten.', 'Native iOS-Push ist in dieser Testversion noch nicht eingerichtet.');
   }
   if(rel==='app-auth.js'){
-   source=source.replace('function showPushWelcome(uid){','function showPushWelcome(uid){\\n if(window.Capacitor?.isNativePlatform?.() && window.Capacitor.getPlatform?.()==="ios")return;');
+   source=source.replace('function showPushWelcome(uid){','function showPushWelcome(uid){\n if(window.Capacitor?.isNativePlatform?.() && window.Capacitor.getPlatform?.()==="ios")return;');
    // Native iOS needs a predictable persistent session storage configuration.
    const before='persistSession:true,autoRefreshToken:true';
    if(!source.includes(before))throw new Error('Supabase Auth configuration changed: review native transformation');
