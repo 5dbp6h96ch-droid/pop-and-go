@@ -33,6 +33,8 @@ jobs:
           test -s www/app-auth.js
           test -s www/app.js
           test -s www/native-push.js
+          test -s www/runtime-diagnostics.js
+          grep -q 'src="runtime-diagnostics.js"' www/index.html
           grep -q 'src="native-push.js"' www/index.html
           ! grep -q '/pop-and-go/' www/index.html
       - name: Compile iOS Simulator app without signing
