@@ -1,41 +1,46 @@
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
-// STAGED CODE ONLY. Deploy only after confirming cascades and running deletion
-// tests on disposable users. Never use an administrator account for testing.
-const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json","cache-control":"no-store"}});
+
+// Native iOS and local tests. All authorization is server-side, not CORS-based.
+const origins=new Set(["capacitor://localhost","http://localhost","https://5dbp6h96ch-droid.github.io"]);
+const headers=(request:Request)=>({
+ "access-control-allow-origin":origins.has(request.headers.get("origin")||"")?request.headers.get("origin")!:"capacitor://localhost",
+ "access-control-allow-methods":"POST,OPTIONS",
+ "access-control-allow-headers":"authorization,apikey,content-type,x-client-info",
+ "vary":"Origin","cache-control":"no-store","content-type":"application/json"
+});
 Deno.serve(async request=>{
- if(request.method!=="POST")return json({error:"method_not_allowed"},405);
+ const respond=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:headers(request)});
+ if(request.method==="OPTIONS")return new Response(null,{status:204,headers:headers(request)});
+ if(request.method!=="POST")return respond({error:"method_not_allowed"},405);
  const token=request.headers.get("authorization")?.match(/^Bearer (.+)$/i)?.[1];
- if(!token)return json({error:"unauthorized"},401);
+ if(!token)return respond({error:"unauthorized"},401);
  const url=Deno.env.get("SUPABASE_URL");
- const publishable=Deno.env.get("SUPABASE_ANON_KEY");
  const serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
- if(!url||!publishable||!serviceKey)return json({error:"unconfigured"},503);
- const client=createClient(url,publishable,{global:{headers:{Authorization:`Bearer ${token}`}}});
- const {data:{user},error:authenticationError}=await client.auth.getUser();
- if(authenticationError||!user)return json({error:"unauthorized"},401);
+ const anonKey=Deno.env.get("SUPABASE_ANON_KEY");
+ if(!url||!serviceKey||!anonKey)return respond({error:"unconfigured"},503);
+ const auth=createClient(url,anonKey);
+ const {data:{user},error:authError}=await auth.auth.getUser(token);
+ if(authError||!user)return respond({error:"unauthorized"},401);
  let body:any;
- try{body=await request.json()}catch{return json({error:"invalid_json"},400)}
- if(body?.confirmation!=="LÖSCHEN")return json({error:"confirmation_required"},400);
- const admin=createClient(url,serviceKey);
+ try{body=await request.json()}catch{return respond({error:"invalid_json"},400)}
+ if(body?.confirmation!=="LÖSCHEN")return respond({error:"confirmation_required"},400);
+ const admin=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
  const {data:profile,error:profileError}=await admin.from("profiles").select("is_admin").eq("user_id",user.id).maybeSingle();
- if(profileError)return json({error:"profile_check_failed"},500);
- if(profile?.is_admin)return json({error:"admin_account_requires_manual_transfer"},409);
- // Preserve shared suggestion records but remove the submitting user's reference.
- const steps=[
-  ["push_subscriptions","user_id","delete"],
-  ["notifications","user_id","delete"],
-  ["favorites","user_id","delete"],
-  ["collections","owner_id","delete"],
-  ["suggestions","submitted_by","anonymize"],
-  ["profiles","user_id","delete"]
- ] as const;
- for(const [table,column,operation] of steps){
-  const result=operation==="delete"
-   ? await admin.from(table).delete().eq(column,user.id)
-   : await admin.from(table).update({submitted_by:null}).eq(column,user.id);
-  if(result.error)return json({error:"cleanup_failed",table},500);
+ if(profileError)return respond({error:"profile_lookup_failed"},500);
+ if(profile?.is_admin)return respond({error:"administrator_account_protected"},409);
+ // Sender IDs in private broadcasts are NOT NULL / RESTRICT, so refuse deletion
+ // if a former admin had sent broadcasts; this needs manual retention handling.
+ const blocker=await admin.schema("app_private").from("admin_broadcasts").select("id",{head:true,count:"exact"}).eq("sender_id",user.id);
+ if(blocker.error)return respond({error:"retention_check_failed"},500);
+ if((blocker.count||0)>0)return respond({error:"broadcast_retention_requires_review"},409);
+ // Nullable historical references must be anonymized before auth user deletion.
+ for(const [table,column] of [["suggestions","submitted_by"],["suggestions","reviewed_by"],["audit_events","actor_id"]] as const){
+  const {error}=await admin.from(table).update({[column]:null}).eq(column,user.id);
+  if(error)return respond({error:"anonymization_failed",table},500);
  }
+ // Foreign keys ON DELETE CASCADE remove profile, favorites, collections,
+ // shares, notifications and push subscriptions. Do not delete shared places.
  const {error:deleteError}=await admin.auth.admin.deleteUser(user.id);
- if(deleteError)return json({error:"auth_deletion_failed"},500);
- return json({deleted:true});
+ if(deleteError)return respond({error:"auth_deletion_failed"},500);
+ return respond({deleted:true});
 });
