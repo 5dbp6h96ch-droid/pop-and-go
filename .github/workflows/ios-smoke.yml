@@ -57,7 +57,9 @@ jobs:
           BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Info.plist")
           xcrun simctl install "$DEVICE" "$APP"
           xcrun simctl launch "$DEVICE" "$BUNDLE_ID"
+          sleep 8
           xcrun simctl io "$DEVICE" screenshot ios-launch.png
+          test -s ios-launch.png
       - name: Upload simulator screenshot
         if: always()
         uses: actions/upload-artifact@v4
