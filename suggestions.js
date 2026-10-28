@@ -110,11 +110,12 @@ function suggestPlaceCategory(place){
 }
 $("doSearch").onclick=async()=>{
  const term=$("searchPlace").value.trim();if(term.length<3){msg("Bitte einen Suchbegriff mit mindestens drei Zeichen eingeben.");return}
+ const searchRevision=++proposalSearchRevision;
  ++autoRequest;$("smartSuggestResults")?.replaceChildren();const button=$("doSearch");button.disabled=true;msg("Suche nach passenden Orten …");const list=$("searchResults");list.hidden=false;list.replaceChildren();$("smartSuggestResults")?.replaceChildren();
  try{
  const {data:{session}}=await db.auth.getSession();if(!session?.access_token)throw Error("Bitte erneut anmelden");
  const response=await fetch("https://itaoljnqwoiifztjlfyc.supabase.co/functions/v1/popgo-place-search?q="+encodeURIComponent(term),{headers:{Authorization:"Bearer "+session.access_token,apikey:"sb_publishable_9SXRrjZnf1-Od24sBr6QNA_9WUPofZV"}});
- const payload=await response.json();if(term!==$("searchPlace").value.trim())return;if(!response.ok)throw Error(payload.error||"Suche fehlgeschlagen");
+ const payload=await response.json();if(searchRevision!==proposalSearchRevision||term!==$("searchPlace").value.trim())return;if(!response.ok)throw Error(payload.error||"Suche fehlgeschlagen");
  if(!payload.results?.length){list.append(element("p","Keine passenden Orte gefunden. Du kannst die Idee manuell eingeben."));msg("Keine Treffer.");$("searchStatus").textContent="Kein Treffer. Angaben bitte manuell prüfen.";if(!$("livePlaceSearch")?.value.trim())showProposalPreview("Ohne Suchtreffer");return}
  const normalized=v=>String(v||"").toLocaleLowerCase("de").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/ß/g,"ss").replace(/[^a-z0-9]+/g," ").trim();
  const source=$("dictation").value.trim();
@@ -155,7 +156,7 @@ $("doSearch").onclick=async()=>{
  $("proposalPreview").hidden=true;$("dictation").scrollIntoView({block:"center",behavior:"smooth"})};
  item.append(b);list.append(item)}
  msg(candidates.length+" passende Treffer. Bitte den richtigen auswählen.");$("searchStatus").textContent=candidates.length+" mögliche Treffer – passenden Ort antippen.";$("smartSearchStatus").textContent=candidates.length+" Treffer – passenden Betrieb auswählen.";
- }catch(error){msg("Ortsrecherche fehlgeschlagen: "+error.message);$("searchStatus").textContent="Suche derzeit nicht verfügbar. Du kannst den Vorschlag trotzdem einreichen.";showProposalPreview("Ohne Suchtreffer")}finally{button.disabled=false}
+ }catch(error){if(searchRevision!==proposalSearchRevision)return;msg("Ortsrecherche fehlgeschlagen: "+error.message);$("searchStatus").textContent="Suche derzeit nicht verfügbar. Du kannst den Vorschlag trotzdem einreichen.";showProposalPreview("Ohne Suchtreffer")}finally{button.disabled=false}
 };
 $("enrichSite").onclick=async()=>{
  let website=$("website").value.trim();if(website&&!/^https?:\/\//i.test(website))website="https://"+website;try{const parsed=new URL(website);if(parsed.protocol!=="https:"||!parsed.hostname.includes("."))throw Error("invalid")}catch(error){msg("Bitte eine gültige Website eingeben, z. B. https://www.purino.de.");return}$("website").value=website;
@@ -205,7 +206,20 @@ function processIdeaDescription(){
   $("manualDetails").open=true;showProposalPreview("Manuelle Angaben");msg("Bitte Name und Ort ergänzen.");
  }
 }
-let descriptionTimer=null;
+let descriptionTimer=null,proposalSearchRevision=0;
+$("ideaDiscard").addEventListener("click",()=>{
+ ++proposalSearchRevision;++autoRequest;clearTimeout(descriptionTimer);clearTimeout(smartSearchTimer);
+ selectedPlace=null;const form=$("proposal");form.reset();
+ for(const id of ["dictation","smartPlaceInput","searchPlace","name","locality","website","note","foundAddress","foundPhone","foundEmail"])if($(id))$(id).value="";
+ $("category").value="Sonstiges";$("manualDetails").open=false;
+ for(const id of ["searchResults","smartSuggestResults"])$(id)?.replaceChildren();
+ for(const id of ["searchStatus","smartSearchStatus","proposalStatus","previewText","dataSummary"])if($(id))$(id).textContent="";
+ $("proposalPreview").hidden=true;$("selectedData").hidden=true;$("siteFields").hidden=true;
+ $("smartSearchButton").hidden=true;$("doSearch").disabled=false;
+ $("dictationLabel").textContent="Deine Idee beschreiben";$("dictation").placeholder="z. B. Café Kleine Rose in Ladenburg mit schönem Innenhof";
+ msg("");$("voiceStatus").textContent="Bereit für eine neue Idee. Einmal tippen und sprechen.";
+ $("voiceStart").scrollIntoView({behavior:"smooth",block:"center"});
+});
 $("dictation").addEventListener("input",()=>{
  clearTimeout(descriptionTimer);
  if(selectedPlace){$("note").value=$("dictation").value.trim().slice(0,1000);return}
