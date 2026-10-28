@@ -79,6 +79,8 @@ $("backDiscover").onclick=()=>document.querySelector('[data-view="discover"]')?.
 $("navNew").addEventListener("click",e=>{if(!e.isTrusted)return;e.stopImmediatePropagation();window.location.assign("vorschlagen.html?mode=new&direct=1&v=20261028-direct-speech-v1")},true);
 $("navNew").onclick=()=>{document.querySelectorAll("main section").forEach(section=>section.hidden=section.id!=="newSection");document.querySelectorAll(".bottom-nav button").forEach(button=>{button.classList.toggle("active",button.id==="navNew");button.removeAttribute("aria-current")});$("navNew").setAttribute("aria-current","page");};
 $("navNew").click();
+// Return to the proposal as a fresh top-level document after full app reload.
+if(new URLSearchParams(location.search).has("voiceRestart")){try{sessionStorage.removeItem("popgo-return-to-new")}catch(e){}setTimeout(()=>{location.replace("vorschlagen.html?mode=new&direct=1&v=20261028-full-restart-v1")},150)}
 // Preserve the current view when returning from external websites or iOS app switching.
 // The initial navigation to "Neu" above runs only on a fresh document load.
 
