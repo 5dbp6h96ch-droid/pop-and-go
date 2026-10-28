@@ -1,0 +1,123 @@
+name: iOS simulator smoke build
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'ios-app/**'
+      - '*.html'
+      - '*.js'
+      - '*.css'
+      - '*.svg'
+      - '*.png'
+      - '*.webmanifest'
+      - '.github/workflows/ios-smoke.yml'
+concurrency:
+  group: ios-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  browser-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test tools
+        working-directory: ios-app
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Prepare bundled website
+        working-directory: ios-app
+        run: npm run prepare:web
+      - name: Run authentication and navigation integration tests
+        working-directory: ios-app
+        run: npm run test:e2e
+  ios-simulator:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Capacitor dependencies
+        working-directory: ios-app
+        run: npm install --no-audit --no-fund
+      - name: Generate unsigned iOS Xcode project
+        working-directory: ios-app
+        run: npm run ios:init
+      - name: Verify JavaScript syntax and native auth bundle
+        working-directory: ios-app
+        run: |
+          node --check www/app-auth.js
+          node --check www/push-settings.js
+          node --check www/native-push.js
+          node --check www/runtime-diagnostics.js
+          node --check www/diagnostics-ui.js
+          node --check www/account-deletion-ui.js
+          npm run test:bundle
+      - name: Verify bundled app assets
+        working-directory: ios-app
+        run: |
+          test -s www/index.html
+          test -s www/app-auth.js
+          test -s www/app.js
+          test -s www/native-push.js
+          test -s www/runtime-diagnostics.js
+          test -s www/diagnostics-ui.js
+          test -s www/account-deletion-ui.js
+          grep -q 'src="runtime-diagnostics.js"' www/index.html
+          grep -q 'src="native-push.js"' www/index.html
+          ! grep -q '/pop-and-go/' www/index.html
+      - name: Compile iOS Simulator app without signing
+        working-directory: ios-app
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App \
+            -derivedDataPath build -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
+
+      - name: Boot simulator and launch app
+        if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        timeout-minutes: 5
+        working-directory: ios-app
+        run: |
+          set -euo pipefail
+          DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next((x["udid"] for group in d.values() for x in group if x["name"].startswith("iPhone") and x["state"]=="Shutdown"), ""))')
+          test -n "$DEVICE"
+          xcrun simctl boot "$DEVICE"
+          # GitHub macOS runners may stall while booting CoreSimulator.
+          # Time-box the boot process so a compiled app can still be archived.
+          python3 -c 'import subprocess,sys; subprocess.run(["xcrun","simctl","bootstatus",sys.argv[1],"-b"],timeout=150,check=True)' "$DEVICE"
+          APP="build/Build/Products/Debug-iphonesimulator/App.app"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Info.plist")
+          xcrun simctl install "$DEVICE" "$APP"
+          xcrun simctl launch "$DEVICE" "$BUNDLE_ID"
+          sleep 8
+          xcrun simctl io "$DEVICE" screenshot ios-launch.png
+          test -s ios-launch.png
+      - name: Upload simulator screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raus-und-guggen-ios-launch
+          path: ios-app/ios-launch.png
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Archive unsigned simulator application
+        if: always()
+        working-directory: ios-app
+        run: |
+          test -d build/Build/Products/Debug-iphonesimulator/App.app
+          ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Debug-iphonesimulator/App.app ios-simulator-app.zip
+      - name: Upload simulator build artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raus-und-guggen-ios-simulator
+          path: ios-app/ios-simulator-app.zip
+          if-no-files-found: ignore
+          retention-days: 7
