@@ -1,7 +1,53 @@
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>raus & guggen – Audiotest</title><style>body{font:16px system-ui;max-width:600px;margin:auto;padding:22px;background:#faf9f4;color:#24163c}button,a{display:block;padding:16px;margin:14px 0;border:0;border-radius:14px;background:#7135f4;color:white;font:inherit;text-align:center}button:disabled{opacity:.5}audio{width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body><h1>Audioaufnahme – iPhone-Test</h1><p>Diese isolierte Testseite prüft nur die kostenlose Aufnahme mit MediaRecorder, ohne Web Speech API und ohne Upload. Es wird noch kein Text erzeugt.</p><button id="toggle">Aufnahme starten</button><p id="status" role="status">Bereit</p><audio id="playback" controls hidden></audio><pre id="log"></pre><a href="./">Zurück zur App</a><script>
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>raus & guggen – Audiotest</title><style>body{font:16px system-ui;max-width:600px;margin:auto;padding:22px;background:#faf9f4;color:#24163c}button,a{display:block;padding:16px;margin:14px 0;border:0;border-radius:14px;background:#7135f4;color:white;font:inherit;text-align:center}button:disabled{opacity:.5}audio{width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body><h1>Audioaufnahme – iPhone-Test</h1><p>Diese Testseite nimmt lokal auf und versucht danach eine kostenlose Transkription direkt auf dem iPhone. Beim ersten Mal wird ein KI-Modell heruntergeladen. Das kann auf älteren Geräten langsam sein oder scheitern; Audio wird nicht hochgeladen.</p><button id="toggle">Aufnahme starten</button><p id="status" role="status">Bereit</p><audio id="playback" controls hidden></audio><p id="transcriptStatus" role="status">Noch keine Transkription.</p><textarea id="transcript" rows="4" style="width:100%;box-sizing:border-box;padding:12px;border-radius:12px" placeholder="Erkannter Text erscheint hier"></textarea><button id="transcribe" type="button" disabled>Aufnahme lokal transkribieren</button><pre id="log"></pre><a href="./">Zurück zur App</a><script>
 (()=>{"use strict";const btn=document.getElementById("toggle"),status=document.getElementById("status"),audio=document.getElementById("playback"),log=document.getElementById("log");let recorder=null,stream=null,chunks=[],url=null;
 function note(x){log.textContent+=new Date().toLocaleTimeString("de-DE")+" – "+x+"\n"}
 function cleanup(){if(stream)for(const track of stream.getTracks())track.stop();stream=null;recorder=null;btn.disabled=false;btn.textContent="Aufnahme starten"}
-btn.onclick=async()=>{if(recorder&&recorder.state==="recording"){btn.disabled=true;status.textContent="Aufnahme wird abgeschlossen …";recorder.stop();return}try{if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder)throw Error("MediaRecorder oder Mikrofonzugriff nicht unterstützt");stream=await navigator.mediaDevices.getUserMedia({audio:true});const mime=["audio/mp4","audio/webm;codecs=opus","audio/webm"].find(x=>MediaRecorder.isTypeSupported(x));recorder=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);chunks=[];recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};recorder.onerror=e=>{note("Fehler: "+(e.error?.name||"unbekannt"));status.textContent="Aufnahmefehler";cleanup()};recorder.onstop=()=>{const blob=new Blob(chunks,{type:recorder.mimeType||"audio/mp4"});if(url)URL.revokeObjectURL(url);url=URL.createObjectURL(blob);audio.src=url;audio.hidden=false;status.textContent="Aufnahme vorhanden ("+Math.round(blob.size/1024)+" KB). Mit Play prüfen.";note("Aufnahme beendet, Bytes: "+blob.size);cleanup()};recorder.start(250);btn.textContent="Aufnahme beenden";status.textContent="Mikrofon nimmt auf …";note("Aufnahme gestartet")}catch(e){note("Startfehler: "+e.name);status.textContent="Mikrofon konnte nicht gestartet werden.";cleanup()}};
+btn.onclick=async()=>{if(recorder&&recorder.state==="recording"){btn.disabled=true;status.textContent="Aufnahme wird abgeschlossen …";recorder.stop();return}try{if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder)throw Error("MediaRecorder oder Mikrofonzugriff nicht unterstützt");stream=await navigator.mediaDevices.getUserMedia({audio:true});const mime=["audio/mp4","audio/webm;codecs=opus","audio/webm"].find(x=>MediaRecorder.isTypeSupported(x));recorder=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);chunks=[];recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};recorder.onerror=e=>{note("Fehler: "+(e.error?.name||"unbekannt"));status.textContent="Aufnahmefehler";cleanup()};recorder.onstop=()=>{const blob=new Blob(chunks,{type:recorder.mimeType||"audio/mp4"});window.popgoAudioBlob=blob;document.getElementById("transcribe").disabled=false;document.getElementById("transcriptStatus").textContent="Aufnahme bereit. Lokale Transkription startet …";setTimeout(()=>document.getElementById("transcribe").click(),100);if(url)URL.revokeObjectURL(url);url=URL.createObjectURL(blob);audio.src=url;audio.hidden=false;status.textContent="Aufnahme vorhanden ("+Math.round(blob.size/1024)+" KB). Mit Play prüfen.";note("Aufnahme beendet, Bytes: "+blob.size);cleanup()};recorder.start(250);btn.textContent="Aufnahme beenden";status.textContent="Mikrofon nimmt auf …";note("Aufnahme gestartet")}catch(e){note("Startfehler: "+e.name);status.textContent="Mikrofon konnte nicht gestartet werden.";cleanup()}};
 window.addEventListener("pagehide",()=>{if(url)URL.revokeObjectURL(url);if(stream)stream.getTracks().forEach(t=>t.stop())});
-})();</script></body></html>
+})();</script><script type="module">
+const button=document.getElementById("transcribe"),display=document.getElementById("transcriptStatus"),text=document.getElementById("transcript"),log=document.getElementById("log");
+let modelPromise=null;
+const note=x=>{log.textContent+=new Date().toLocaleTimeString("de-DE")+" – "+x+"\n"};
+async function audioTo16k(blob){
+ const bytes=await blob.arrayBuffer();
+ const context=new (window.AudioContext||window.webkitAudioContext)();
+ try {
+  const decoded=await context.decodeAudioData(bytes.slice(0));
+  const outputRate=16000;
+  const offline=new OfflineAudioContext(1,Math.ceil(decoded.duration*outputRate),outputRate);
+  const mono=offline.createBuffer(1,decoded.length,decoded.sampleRate);
+  const target=mono.getChannelData(0);
+  for(let ch=0;ch<decoded.numberOfChannels;ch++){
+   const source=decoded.getChannelData(ch);
+   for(let i=0;i<source.length;i++)target[i]+=source[i]/decoded.numberOfChannels;
+  }
+  const node=offline.createBufferSource();node.buffer=mono;node.connect(offline.destination);node.start();
+  const resampled=await offline.startRendering();
+  return new Float32Array(resampled.getChannelData(0));
+ }finally{await context.close()}
+}
+button.onclick=async()=>{
+ if(!window.popgoAudioBlob)return;
+ button.disabled=true;display.textContent="Audio wird vorbereitet …";
+ try{
+  const samples=await audioTo16k(window.popgoAudioBlob);
+  note("Audio dekodiert: "+samples.length+" Samples (16 kHz)");
+  if(!modelPromise){
+   display.textContent="Kostenloses Sprachmodell wird geladen (erster Start kann länger dauern) …";
+   modelPromise=import("https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2").then(async({pipeline,env})=>{
+    env.allowLocalModels=false;
+    return pipeline("automatic-speech-recognition","Xenova/whisper-tiny",{quantized:true,progress_callback:x=>{
+     if(x.status==="progress"&&x.progress!=null)display.textContent="Sprachmodell laden: "+Math.round(x.progress)+" %";
+    }});
+   }).catch(e=>{modelPromise=null;throw e});
+  }
+  const transcriber=await modelPromise;
+  display.textContent="Sprache wird vollständig auf dem Gerät erkannt …";
+  const result=await transcriber(samples,{task:"transcribe",language:"german"});
+  text.value=String(result.text||"").trim();
+  display.textContent=text.value?"Text erfolgreich erkannt.":"Kein Text erkannt.";
+  note("Transkription abgeschlossen; Textlänge: "+text.value.length);
+ }catch(e){display.textContent="Lokale Transkription fehlgeschlagen: "+(e?.message||e);note("Transkriptionsfehler: "+(e?.name||"unbekannt"))}
+ finally{button.disabled=false}
+};
+</script></body></html>
