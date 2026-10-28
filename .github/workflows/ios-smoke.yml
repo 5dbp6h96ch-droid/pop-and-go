@@ -46,6 +46,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO build
 
       - name: Boot simulator and launch app
+        if: github.event_name == 'workflow_dispatch'
         continue-on-error: true
         timeout-minutes: 5
         working-directory: ios-app
