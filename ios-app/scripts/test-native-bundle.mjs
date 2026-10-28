@@ -14,6 +14,8 @@ assert.match(push,/Native iOS-Push ist in dieser Testversion noch nicht eingeric
 assert.match(html,/src="native-push.js"/);
 assert.match(html,/src="runtime-diagnostics.js"/);
 assert.match(diag,/popgoIOSDiagnostics/);
+assert.match(file('diagnostics-ui.js'),/getSession\(\)/,'Native diagnostic panel must check current session read-only');
+assert.match(html,/src="diagnostics-ui.js"/);
 assert.ok(existsSync(join(root,'www','vorschlagen.html')),'Embedded form must ship');
 assert.doesNotMatch(html,/\/pop-and-go\//,'Native app must not use GitHub Pages root');
 console.log('iOS bundle static/auth compatibility checks passed.');
