@@ -1,1 +1,77 @@
-(()=>{"use strict";const $=id=>document.getElementById(id),input=$("dictation"),button=$("voiceStart"),status=$("voiceStatus");if(!input||!button)return;button.addEventListener("contextmenu",e=>e.preventDefault());button.addEventListener("dragstart",e=>e.preventDefault());button.querySelectorAll("*").forEach(el=>{el.setAttribute("draggable","false")});const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let rec=null,active=false,stopRequested=false,receivedResult=false;function stop(){if(rec&&active){stopRequested=true;status.textContent="Aufnahme wird beendet …";try{rec.stop()}catch(e){finish()}}}function finish(){if(stopRequested&&!receivedResult){status.textContent=input.value.trim()?"Aufnahme beendet. Vorhandenen Text prüfen.":"Aufnahme beendet, aber kein Text erkannt. Bitte erneut sprechen oder das iPhone-Tastaturmikrofon verwenden."}reset()}function reset(){active=false;button.setAttribute("aria-pressed","false");$("voiceStartLabel").textContent="Jetzt sprechen"}function prepare(){const raw=input.value.trim();if(!raw){$("manualDetails").open=true;status.textContent="Name und Ort manuell unter Weitere Angaben eintragen."; $("manualDetails").scrollIntoView({behavior:"smooth",block:"nearest"});return}const parsed=typeof interpretDictation==="function"?interpretDictation(raw):{name:raw};if(parsed.name)$("name").value=parsed.name;if(parsed.locality)$("locality").value=parsed.locality;if(parsed.category&&parsed.category!=="Sonstiges")$("category").value=parsed.category;$("note").value=raw.slice(0,1000);$("manualDetails").open=true;const summary=[parsed.name,parsed.locality,parsed.category].filter(Boolean).join(" · ");$("proposalPreview").hidden=false;$("previewText").textContent=summary||raw;status.textContent="Angaben prüfen, bei Bedarf ergänzen und dann einreichen.";$("proposalPreview").scrollIntoView({behavior:"smooth",block:"nearest"})}const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);function iosDictation(){reset();const details=$("manualDetails");if(details)details.open=true;input.hidden=false;input.focus();input.scrollIntoView({behavior:"smooth",block:"center"});status.textContent="Beschreibung geöffnet. Tippe auf das Mikrofon der iPhone-Tastatur, sprich deine Idee und bestätige das Diktat.";};if(ios){$("voiceStartLabel").textContent="Mit iPhone diktieren";button.setAttribute("aria-label","Beschreibungsfeld für iPhone-Tastaturdiktat öffnen");status.textContent="Für zuverlässige Spracheingabe das iPhone-Tastaturmikrofon verwenden.";};button.addEventListener("click",()=>{if(ios){iosDictation();return}if(active){stop();return}if(!SR){status.textContent="Dieses iPhone stellt der Web-App keine direkte Spracherkennung bereit. Für die Spracheingabe unten ins Beschreibungsfeld tippen und das Tastaturmikrofon verwenden.";input.focus();return}stopRequested=false;receivedResult=false;rec=new SR();rec.lang="de-DE";rec.interimResults=false;rec.continuous=false;rec.maxAlternatives=1;rec.onresult=e=>{const text=Array.from(e.results).map(x=>x[0].transcript).join(" ").trim();if(text){receivedResult=true;input.value=(input.value.trim()?input.value.trim()+" ":"")+text;input.dispatchEvent(new Event("input",{bubbles:true}));status.textContent="Erkannt. Wähle einen Suchvorschlag oder erfasse die Angaben manuell."}};rec.onerror=e=>{const kind=String(e.error||"unbekannt");const hints={"not-allowed":"Mikrofonzugriff wurde verweigert. Prüfe die iPhone-Berechtigungen.","service-not-allowed":"Die iPhone-Web-App erlaubt diese Art der Spracherkennung zurzeit nicht.","network":"Die Spracherkennung hat ein Verbindungsproblem.","no-speech":"Keine Sprache erkannt. Bitte erneut versuchen.","audio-capture":"Das Mikrofon ist gerade nicht verfügbar.","aborted":"Die Aufnahme wurde unterbrochen."};if(kind==="aborted"&&stopRequested){return}status.textContent=(hints[kind]||"Spracherkennung konnte nicht gestartet werden.")+" Alternative: Tippe ins Beschreibungsfeld und nutze das Mikrofon auf der iPhone-Tastatur. ("+kind+")";stopRequested=false;reset()};rec.onend=()=>{if(stopRequested){finish()}else{reset();if(!receivedResult&&!input.value.trim()&&status.textContent==="Ich höre zu …")status.textContent="Keine Sprache erkannt. Bitte erneut versuchen oder das iPhone-Tastaturmikrofon verwenden."}};try{rec.start();active=true;button.setAttribute("aria-pressed","true");$("voiceStartLabel").textContent="Aufnahme beenden";status.textContent="Ich höre zu …"}catch(e){reset();status.textContent="Mikrofon konnte nicht gestartet werden. Bitte Tastaturdiktat nutzen.";input.focus()}});$("ideaDiscard").addEventListener("click",()=>{stop();if(input.value.trim()||$("name").value.trim()){if(!confirm("Diesen Vorschlag verwerfen?"))return}$("proposal").reset();if(typeof selectedPlace!=="undefined")selectedPlace=null;$("proposalPreview").hidden=true;$("searchResults").replaceChildren();$("searchStatus").textContent="";$("proposalStatus").textContent="";$("selectedData").hidden=true;$("siteFields").hidden=true;$("dictationLabel").textContent="Deine Idee beschreiben";$("dictation").placeholder="z. B. Café Kleine Rose in Ladenburg mit schönem Innenhof";$("smartSearchStatus").textContent="";$("smartPlaceInput").value="";$("smartSuggestResults").replaceChildren();status.textContent="Bereit für eine neue Idee.";input.focus()});})();
+(()=>{"use strict";
+const $=id=>document.getElementById(id),input=$("dictation"),button=$("voiceStart"),status=$("voiceStatus"),label=$("voiceStartLabel");
+if(!input||!button||!status||!label)return;
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let recognition=null,phase="idle",baseText="",interim="",finalText="",hadResult=false,manualStop=false,errorKind="",silenceTimer=null,hardTimer=null,session=0;
+const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const clearTimers=()=>{clearTimeout(silenceTimer);clearTimeout(hardTimer);silenceTimer=null;hardTimer=null};
+const setPhase=(value)=>{phase=value;const running=value==="starting"||value==="listening"||value==="stopping";button.setAttribute("aria-pressed",String(running));label.textContent=value==="starting"?"Mikrofon wird gestartet …":value==="listening"?"Aufnahme beenden":value==="stopping"?"Verarbeite Sprache …":"Jetzt sprechen";button.disabled=value==="starting"||value==="stopping"};
+const commitText=()=>{
+ const phrase=(finalText||interim).trim();if(!phrase)return false;
+ const combined=[baseText,phrase].filter(Boolean).join(" ").trim();
+ input.value=combined;input.dispatchEvent(new Event("input",{bubbles:true}));return true;
+};
+const finish=()=>{
+ clearTimers();const ok=commitText();setPhase("idle");recognition=null;
+ if(ok){status.textContent="Sprache erkannt. Passende Vorschläge werden gesucht.";return}
+ if(!errorKind)status.textContent="Keine Sprache erkannt. Erneut auf Jetzt sprechen tippen und direkt sprechen.";
+};
+const stop=()=>{
+ if(!recognition||phase==="idle"||phase==="stopping")return;
+ manualStop=true;clearTimers();setPhase("stopping");status.textContent="Sprache wird verarbeitet …";
+ try{recognition.stop()}catch(e){finish()}
+};
+const armSilence=()=>{
+ clearTimeout(silenceTimer);
+ // End after a short pause once the browser delivered speech, not after fixed recording time.
+ silenceTimer=setTimeout(()=>{if(phase==="listening"&&hadResult)stop()},1800);
+};
+function start(){
+ if(!SR){status.textContent="Direkte Spracherkennung wird von diesem Browser nicht angeboten.";return}
+ clearTimers();session++;const current=session;
+ recognition=new SR();const r=recognition;
+ baseText=input.value.trim();interim="";finalText="";hadResult=false;manualStop=false;errorKind="";
+ r.lang="de-DE";r.interimResults=true;r.continuous=false;r.maxAlternatives=1;
+ r.onstart=()=>{
+  if(current!==session)return;setPhase("listening");
+  status.textContent="Mikrofon aktiv. Bitte jetzt sprechen.";
+  hardTimer=setTimeout(()=>{if(current===session&&phase==="listening")stop()},45000);
+ };
+ r.onaudiostart=()=>{if(current===session&&phase==="listening")status.textContent="Mikrofon empfängt Audio. Bitte sprechen."};
+ r.onspeechstart=()=>{if(current===session&&phase==="listening")status.textContent="Sprache erkannt …"};
+ r.onresult=e=>{
+  if(current!==session)return;
+  let finals=[],partials=[];
+  for(let i=0;i<e.results.length;i++){
+   const item=e.results[i];const transcript=item&&item[0]&&item[0].transcript||"";
+   (item.isFinal?finals:partials).push(transcript);
+  }
+  finalText=finals.join(" ").trim();interim=partials.join(" ").trim();hadResult=!!(finalText||interim);
+  if(hadResult){
+   const combined=[baseText,finalText,interim].filter(Boolean).join(" ").trim();
+   input.value=combined;input.dispatchEvent(new Event("input",{bubbles:true}));
+   status.textContent=finalText?"Erkannt: "+finalText:"Ich höre: "+interim;
+   if(phase==="listening"){armSilence();if(finalText&&!interim)armSilence()}
+  }
+ };
+ r.onspeechend=()=>{if(current!==session)return;if(hadResult&&phase==="listening")armSilence()};
+ r.onerror=e=>{
+  if(current!==session)return;errorKind=String(e.error||"unbekannt");
+  if(errorKind==="aborted"&&manualStop)return;
+  const messages={"not-allowed":"Mikrofon- oder Spracherkennungsberechtigung verweigert.","service-not-allowed":"Die Spracherkennung ist in dieser iPhone-Umgebung nicht erlaubt.","network":"Verbindungsproblem bei der Spracherkennung.","no-speech":"Keine Sprache erkannt.","audio-capture":"Das Mikrofon ist nicht verfügbar.","aborted":"Die Spracherkennung wurde von iOS abgebrochen."};
+  status.textContent=(messages[errorKind]||"Spracherkennung fehlgeschlagen.")+" ("+errorKind+")";
+ };
+ r.onend=()=>{if(current!==session)return;finish()};
+ setPhase("starting");status.textContent="Starte Mikrofon …";
+ try{r.start()}catch(e){errorKind="start";status.textContent="Spracherkennung konnte nicht gestartet werden.";finish()}
+}
+button.addEventListener("contextmenu",e=>e.preventDefault());
+button.addEventListener("dragstart",e=>e.preventDefault());
+button.querySelectorAll("*").forEach(el=>el.setAttribute("draggable","false"));
+button.setAttribute("aria-label","Spracherkennung starten oder beenden");
+button.addEventListener("click",()=>{if(phase==="listening")stop();else if(phase==="idle")start()});
+status.textContent=SR?"Einmal tippen und sprechen. Nach einer Sprechpause endet die Aufnahme automatisch.":"Spracherkennung ist hier nicht verfügbar.";
+window.addEventListener("pagehide",()=>{session++;clearTimers();try{recognition&&recognition.abort()}catch(e){}recognition=null});
+const discard=$("ideaDiscard");
+if(discard)discard.addEventListener("click",()=>{session++;clearTimers();try{recognition&&recognition.abort()}catch(e){}recognition=null;setPhase("idle")});
+})();
