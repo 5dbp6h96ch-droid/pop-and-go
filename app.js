@@ -76,6 +76,7 @@ $("showMap").onclick=()=>{
  setTimeout(()=>{try{drawMap()}catch(error){$("mapCount").textContent="Karte konnte nicht geöffnet werden: "+error.message}},100);
 };
 $("backDiscover").onclick=()=>document.querySelector('[data-view="discover"]')?.click();
+$("navNew").addEventListener("click",e=>{if(!e.isTrusted)return;e.stopImmediatePropagation();window.location.assign("vorschlagen.html?mode=new&direct=1&v=20261028-direct-speech-v1")},true);
 $("navNew").onclick=()=>{document.querySelectorAll("main section").forEach(section=>section.hidden=section.id!=="newSection");document.querySelectorAll(".bottom-nav button").forEach(button=>{button.classList.toggle("active",button.id==="navNew");button.removeAttribute("aria-current")});$("navNew").setAttribute("aria-current","page");};
 $("navNew").click();
 // Preserve the current view when returning from external websites or iOS app switching.
