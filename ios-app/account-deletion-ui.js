@@ -22,10 +22,13 @@
    if(again!=="LÖSCHEN")return;
    button.disabled=true;
    try{
-    // The backend endpoint has NOT been deployed. Avoid destructive operations
-    // or a misleading success message until reviewed and activated.
-    alert("Die sichere Kontolöschung wird serverseitig vorbereitet. Dein Konto wurde nicht gelöscht.");
-   }finally{button.disabled=false;}
+    const {data,error}=await authClient.functions.invoke("popgo-delete-account",{body:{confirmation:"LÖSCHEN"}});
+    if(error||!data?.deleted)throw Error("Kontolöschung nicht abgeschlossen. Bitte Support kontaktieren.");
+    await authClient.auth.signOut();
+    alert("Dein Konto wurde gelöscht.");
+    location.reload();
+   }catch(error){alert(error?.message||"Kontolöschung aktuell nicht möglich.");}
+   finally{button.disabled=false;}
   });
   target.append(button);
  };
