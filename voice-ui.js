@@ -2,9 +2,9 @@
 const $=id=>document.getElementById(id),input=$("dictation"),button=$("voiceStart"),status=$("voiceStatus"),label=$("voiceStartLabel");
 if(!input||!button||!status||!label)return;
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-let recognition=null,phase="idle",baseText="",interim="",finalText="",hadResult=false,manualStop=false,errorKind="",silenceTimer=null,hardTimer=null,session=0;
+let recognition=null,phase="idle",baseText="",interim="",finalText="",hadResult=false,manualStop=false,errorKind="",silenceTimer=null,hardTimer=null,stopTimer=null,session=0;
 const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
-const clearTimers=()=>{clearTimeout(silenceTimer);clearTimeout(hardTimer);silenceTimer=null;hardTimer=null};
+const clearTimers=()=>{clearTimeout(silenceTimer);clearTimeout(hardTimer);clearTimeout(stopTimer);silenceTimer=null;hardTimer=null;stopTimer=null};
 const setPhase=(value)=>{phase=value;const running=value==="starting"||value==="listening"||value==="stopping";button.setAttribute("aria-pressed",String(running));label.textContent=value==="starting"?"Mikrofon wird gestartet …":value==="listening"?"Aufnahme beenden":value==="stopping"?"Verarbeite Sprache …":"Jetzt sprechen";button.disabled=value==="starting"||value==="stopping"};
 const commitText=()=>{
  const phrase=(finalText||interim).trim();if(!phrase)return false;
@@ -14,12 +14,12 @@ const commitText=()=>{
 const finish=()=>{
  clearTimers();const ok=commitText();setPhase("idle");recognition=null;
  if(ok){status.textContent="Sprache erkannt. Passende Vorschläge werden gesucht.";return}
- if(!errorKind)status.textContent="Keine Sprache erkannt. Erneut auf Jetzt sprechen tippen und direkt sprechen.";
+ if(!errorKind||manualStop)status.textContent="Aufnahme beendet, aber kein Text erkannt. Bitte erneut sprechen.";
 };
 const stop=()=>{
  if(!recognition||phase==="idle"||phase==="stopping")return;
  manualStop=true;clearTimers();setPhase("stopping");status.textContent="Sprache wird verarbeitet …";
- try{recognition.stop()}catch(e){finish()}
+ const current=session;stopTimer=setTimeout(()=>{if(current!==session||phase!=="stopping")return;try{recognition&&recognition.abort()}catch(e){}status.textContent="Die Verarbeitung hat nicht geantwortet. Bitte erneut sprechen.";errorKind="timeout";finish()},3500);try{recognition.stop()}catch(e){status.textContent="Aufnahme konnte nicht beendet werden.";errorKind="stop";finish()}
 };
 const armSilence=()=>{
  clearTimeout(silenceTimer);
@@ -33,7 +33,7 @@ function start(){
  baseText=input.value.trim();interim="";finalText="";hadResult=false;manualStop=false;errorKind="";
  r.lang="de-DE";r.interimResults=true;r.continuous=false;r.maxAlternatives=1;
  r.onstart=()=>{
-  if(current!==session)return;setPhase("listening");
+  if(current!==session||phase!=="starting")return;clearTimeout(stopTimer);stopTimer=null;setPhase("listening");
   status.textContent="Mikrofon aktiv. Bitte jetzt sprechen.";
   hardTimer=setTimeout(()=>{if(current===session&&phase==="listening")stop()},45000);
  };
@@ -63,7 +63,7 @@ function start(){
  };
  r.onend=()=>{if(current!==session)return;finish()};
  setPhase("starting");status.textContent="Starte Mikrofon …";
- try{r.start()}catch(e){errorKind="start";status.textContent="Spracherkennung konnte nicht gestartet werden.";finish()}
+ const startSession=session;stopTimer=setTimeout(()=>{if(session!==startSession||phase!=="starting")return;errorKind="start-timeout";status.textContent="Mikrofonstart hat nicht geantwortet. Bitte erneut versuchen.";try{r.abort()}catch(e){}finish()},5000);try{r.start()}catch(e){errorKind="start";status.textContent="Spracherkennung konnte nicht gestartet werden.";finish()}
 }
 button.addEventListener("contextmenu",e=>e.preventDefault());
 button.addEventListener("dragstart",e=>e.preventDefault());
