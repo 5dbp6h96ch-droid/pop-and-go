@@ -69,13 +69,16 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
       - name: Archive unsigned simulator application
+        if: always()
         working-directory: ios-app
         run: |
           test -d build/Build/Products/Debug-iphonesimulator/App.app
           ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Debug-iphonesimulator/App.app ios-simulator-app.zip
       - name: Upload simulator build artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: raus-und-guggen-ios-simulator
           path: ios-app/ios-simulator-app.zip
+          if-no-files-found: ignore
           retention-days: 7
