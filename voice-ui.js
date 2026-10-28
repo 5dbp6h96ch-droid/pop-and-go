@@ -74,13 +74,14 @@ status.textContent=SR?"Einmal tippen und sprechen. Nach einer Sprechpause endet 
 window.addEventListener("pagehide",()=>{session++;clearTimers();try{recognition&&recognition.abort()}catch(e){}recognition=null});
 const discard=$("ideaDiscard");
 if(discard)discard.addEventListener("click",()=>{
+ // Reload only the embedded suggestion document. The parent app and login stay open.
+ // A fresh document creates a new SpeechRecognition owner rather than reusing
+ // iOS WebKit's potentially stale recognition session after discard.
  session++;clearTimers();clearTimeout(recoveryTimer);
- const previous=recognition;recognition=null;baseText="";interim="";finalText="";lastRecognized="";hadResult=false;manualStop=false;errorKind="";
- setPhase("starting");label.textContent="Mikrofon wird freigegeben …";status.textContent="Neue Aufnahme wird vorbereitet …";
- // iOS can keep the native speech service busy briefly after abort().
- // Do not permit an overlapping recognizer during that release period.
+ const previous=recognition;recognition=null;
  if(previous){try{previous.onresult=null;previous.onerror=null;previous.onstart=null;previous.onend=null;previous.abort()}catch(e){}}
- const resetSession=session;
- recoveryTimer=setTimeout(()=>{if(session!==resetSession)return;setPhase("idle");status.textContent="Bereit für eine neue Idee. Jetzt sprechen."},1000);
+ button.disabled=true;
+ status.textContent="Formular und Mikrofon werden neu gestartet …";
+ setTimeout(()=>{window.location.reload()},150);
 });
 })();
