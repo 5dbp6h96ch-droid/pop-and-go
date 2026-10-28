@@ -27,7 +27,7 @@ const commitText=()=>{
 const finish=()=>{trace("finish","error="+(errorKind||"none")+"; result="+(hadResult?"yes":"no"));
  clearTimers();const ok=commitText();setPhase("idle");recognition=null;
  if(ok){retryCount=0;status.textContent="Sprache erkannt. Passende Vorschläge werden gesucht.";return}
- if(ios&&retryCount<1&&!["not-allowed","service-not-allowed","audio-capture"].includes(errorKind)){retryCount++;trace("auto-retry","Versuch "+(retryCount+1));status.textContent="Keine Sprache erkannt. Mikrofon wird einmal neu gestartet – bitte erneut sprechen.";setPhase("starting");retryTimer=setTimeout(()=>{retryTimer=null;if(phase==="starting")start(true)},650);return}
+ 
  status.textContent="iOS hat keine Sprache erkannt. Bitte erneut versuchen oder die Diagnose kopieren.";
 };
 const stop=()=>{trace("stop",phase);
