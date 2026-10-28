@@ -14,6 +14,16 @@ for(const rel of tracked){
   let source=readFileSync(join(root,rel),'utf8');
   // Native bundle is served from capacitor://localhost/, never GitHub Pages /pop-and-go/.
   source=source.replaceAll('/pop-and-go/','/');
+  // Capacitor native webview cannot use the PWA Web Push subscription flow.
+  // Keep the web/PWA source unchanged, and make the iOS limitation explicit.
+  if(rel==='push-settings.js'){
+   source='const nativeIOS = !!(window.Capacitor?.isNativePlatform?.() && window.Capacitor.getPlatform?.()==="ios");\n'+source;
+   source=source.replace('const supported="serviceWorker"in navigator&&"PushManager"in window&&"Notification"in window;', 'const supported=!nativeIOS&&"serviceWorker"in navigator&&"PushManager"in window&&"Notification"in window;');
+   source=source.replace('Dieses Gerät unterstützt keine Web-Push-Nachrichten.', 'Native iOS-Push ist in dieser Testversion noch nicht eingerichtet.');
+  }
+  if(rel==='app-auth.js'){
+   source=source.replace('function showPushWelcome(uid){','function showPushWelcome(uid){\n if(window.Capacitor?.isNativePlatform?.() && window.Capacitor.getPlatform?.()==="ios")return;');
+  }
   writeFileSync(dest,source);
  }else copyFileSync(join(root,rel),dest);
  copied++;
