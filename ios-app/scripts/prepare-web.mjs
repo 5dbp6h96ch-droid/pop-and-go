@@ -28,5 +28,12 @@ for(const rel of tracked){
  }else copyFileSync(join(root,rel),dest);
  copied++;
 }
+// Include the native-only bridge before the existing web push setup.
+const nativeBridge=readFileSync(join(root,'ios-app','native-push.js'),'utf8');
+writeFileSync(join(out,'native-push.js'),nativeBridge);
+const indexPath=join(out,'index.html');
+const html=readFileSync(indexPath,'utf8');
+if(!html.includes('src="push-settings.js'))throw new Error('Push settings entry not found');
+writeFileSync(indexPath,html.replace('<script src="push-settings.js','<script src="native-push.js"></script><script src="push-settings.js'));
 if(!copied||!tracked.includes('index.html'))throw new Error('No index.html found in tracked frontend files');
 console.log('Prepared '+copied+' tracked frontend assets for Capacitor.');
