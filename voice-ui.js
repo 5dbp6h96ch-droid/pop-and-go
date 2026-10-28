@@ -2,7 +2,7 @@
 const $=id=>document.getElementById(id),input=$("dictation"),button=$("voiceStart"),status=$("voiceStatus"),label=$("voiceStartLabel");
 if(!input||!button||!status||!label)return;
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-let recognition=null,phase="idle",baseText="",interim="",finalText="",hadResult=false,manualStop=false,errorKind="",silenceTimer=null,hardTimer=null,stopTimer=null,recoveryTimer=null,lastRecognized="",session=0;
+let recognition=null,phase="idle",baseText="",interim="",finalText="",hadResult=false,manualStop=false,errorKind="",silenceTimer=null,hardTimer=null,stopTimer=null,recoveryTimer=null,lastRecognized="",session=0,retryCount=0,retryTimer=null;
 const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
 // Diagnostic log remains on this device; it contains events only, never dictated words.
 const diagnostics=document.createElement("details");diagnostics.id="voiceDiagnostics";diagnostics.style.cssText="margin:12px 0;padding:12px;border:1px solid #cfc6e0;border-radius:12px;background:#fff;color:#302646";
@@ -26,8 +26,9 @@ const commitText=()=>{
 };
 const finish=()=>{trace("finish","error="+(errorKind||"none")+"; result="+(hadResult?"yes":"no"));
  clearTimers();const ok=commitText();setPhase("idle");recognition=null;
- if(ok){status.textContent="Sprache erkannt. Passende Vorschläge werden gesucht.";return}
- if(!errorKind||manualStop)status.textContent="Aufnahme beendet, aber kein Text erkannt. Bitte erneut sprechen.";
+ if(ok){retryCount=0;status.textContent="Sprache erkannt. Passende Vorschläge werden gesucht.";return}
+ if(ios&&retryCount<1&&!["not-allowed","service-not-allowed","audio-capture"].includes(errorKind)){retryCount++;trace("auto-retry","Versuch "+(retryCount+1));status.textContent="Keine Sprache erkannt. Mikrofon wird einmal neu gestartet – bitte erneut sprechen.";setPhase("starting");retryTimer=setTimeout(()=>{retryTimer=null;if(phase==="starting")start(true)},650);return}
+ status.textContent="iOS hat keine Sprache erkannt. Bitte erneut versuchen oder die Diagnose kopieren.";
 };
 const stop=()=>{trace("stop",phase);
  if(!recognition||phase==="idle"||phase==="stopping")return;
@@ -39,7 +40,7 @@ const armSilence=()=>{
  // End after a short pause once the browser delivered speech, not after fixed recording time.
  silenceTimer=setTimeout(()=>{if(phase==="listening"&&hadResult)stop()},1800);
 };
-function start(){trace("start-button",phase);
+function start(isRetry=false){if(!isRetry){retryCount=0;clearTimeout(retryTimer);retryTimer=null}trace(isRetry?"retry-start":"start-button",phase);
  if(!SR){status.textContent="Direkte Spracherkennung wird von diesem Browser nicht angeboten.";return}
  clearTimers();session++;const current=session;
  recognition=new SR();const r=recognition;trace("session",String(current));
@@ -84,13 +85,13 @@ button.querySelectorAll("*").forEach(el=>el.setAttribute("draggable","false"));
 button.setAttribute("aria-label","Spracherkennung starten oder beenden");
 button.addEventListener("click",()=>{if(phase==="listening")stop();else if(phase==="idle")start()});
 status.textContent=SR?"Einmal tippen und sprechen. Nach einer Sprechpause endet die Aufnahme automatisch.":"Spracherkennung ist hier nicht verfügbar.";
-window.addEventListener("pagehide",()=>{session++;clearTimers();try{recognition&&recognition.abort()}catch(e){}recognition=null});
+window.addEventListener("pagehide",()=>{session++;clearTimers();clearTimeout(retryTimer);try{recognition&&recognition.abort()}catch(e){}recognition=null});
 const discard=$("ideaDiscard");
 if(discard)discard.addEventListener("click",()=>{trace("verwerfen");
  // Reload only the embedded suggestion document. The parent app and login stay open.
  // A fresh document creates a new SpeechRecognition owner rather than reusing
  // iOS WebKit's potentially stale recognition session after discard.
- session++;clearTimers();clearTimeout(recoveryTimer);
+ session++;clearTimers();clearTimeout(recoveryTimer);clearTimeout(retryTimer);retryCount=0;
  const previous=recognition;recognition=null;
  if(previous){try{previous.onresult=null;previous.onerror=null;previous.onstart=null;previous.onend=null;previous.abort()}catch(e){}}
  button.disabled=true;
