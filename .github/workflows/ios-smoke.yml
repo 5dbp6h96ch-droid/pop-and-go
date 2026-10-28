@@ -11,6 +11,9 @@ on:
       - '*.png'
       - '*.webmanifest'
       - '.github/workflows/ios-smoke.yml'
+concurrency:
+  group: ios-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   ios-simulator:
     runs-on: macos-26
