@@ -10,9 +10,12 @@ const summary=document.createElement("summary");summary.textContent="Spracherken
 const output=document.createElement("pre");output.style.cssText="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;max-height:180px;overflow:auto";diagnostics.append(output);
 const copy=document.createElement("button");copy.type="button";copy.textContent="Diagnose kopieren";copy.style.cssText="width:100%;background:#f0eaff;color:#3b2570";diagnostics.append(copy);
 status.insertAdjacentElement("afterend",diagnostics);
-const events=[];const trace=(name,detail="")=>{events.push(new Date().toLocaleTimeString("de-DE")+" | "+name+(detail?" | "+detail:""));if(events.length>35)events.shift();output.textContent=events.join("\n")};
+const diagnosticKey="popgo-voice-events-v1";
+let events=[];try{const previous=JSON.parse(sessionStorage.getItem(diagnosticKey)||"[]");if(Array.isArray(previous))events=previous.filter(x=>typeof x==="string").slice(-70)}catch(e){}
+const trace=(name,detail="")=>{events.push(new Date().toLocaleTimeString("de-DE")+" | "+name+(detail?" | "+detail:""));if(events.length>90)events.shift();output.textContent=events.join("\n");try{sessionStorage.setItem(diagnosticKey,JSON.stringify(events))}catch(e){}};
+output.textContent=events.join("\n");
 copy.addEventListener("click",()=>{const t=output.textContent;if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(()=>{copy.textContent="Kopiert"}).catch(()=>{copy.textContent="Kopieren nicht möglich"});else{output.hidden=false;copy.textContent="Text markieren und kopieren"}});
-trace("bereit",window.SpeechRecognition?"SpeechRecognition":window.webkitSpeechRecognition?"webkitSpeechRecognition":"keine API");
+trace("seitenstart",window.SpeechRecognition?"SpeechRecognition":window.webkitSpeechRecognition?"webkitSpeechRecognition":"keine API");
 
 const clearTimers=()=>{clearTimeout(silenceTimer);clearTimeout(hardTimer);clearTimeout(stopTimer);silenceTimer=null;hardTimer=null;stopTimer=null};
 const setPhase=(value)=>{phase=value;const running=value==="starting"||value==="listening"||value==="stopping";button.setAttribute("aria-pressed",String(running));label.textContent=value==="starting"?"Mikrofon wird gestartet …":value==="listening"?"Aufnahme beenden":value==="stopping"?"Verarbeite Sprache …":"Jetzt sprechen";button.disabled=value==="starting"||value==="stopping"};
