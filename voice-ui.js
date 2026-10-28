@@ -29,7 +29,7 @@ const finish=()=>{trace("finish","error="+(errorKind||"none")+"; result="+(hadRe
 const stop=()=>{trace("stop",phase);
  if(!recognition||phase==="idle"||phase==="stopping")return;
  manualStop=true;clearTimers();setPhase("stopping");status.textContent="Sprache wird verarbeitet …";
- const current=session;stopTimer=setTimeout(()=>{if(current!==session||phase!=="stopping")return;try{recognition&&recognition.abort()}catch(e){}status.textContent="Die Verarbeitung hat nicht geantwortet. Bitte erneut sprechen.";errorKind="timeout";trace("stop-timeout");finish()},3500);try{recognition.stop()}catch(e){status.textContent="Aufnahme konnte nicht beendet werden.";errorKind="stop";finish()}
+ const current=session;stopTimer=setTimeout(()=>{if(current!==session||phase!=="stopping")return;try{recognition&&recognition.abort()}catch(e){}status.textContent="Die Verarbeitung hat nicht geantwortet. Bitte erneut sprechen.";errorKind="timeout";trace("stop-timeout");finish()},3500);const r=recognition;const stopNative=()=>{if(current!==session||recognition!==r||phase!=="stopping")return;trace("native-stop",hadResult?"result":"no-result");try{r.stop()}catch(e){errorKind="stop";status.textContent="Aufnahme konnte nicht beendet werden.";finish()}};if(hadResult)stopNative();else{trace("await-late-result");setTimeout(stopNative,800)}
 };
 const armSilence=()=>{
  clearTimeout(silenceTimer);
