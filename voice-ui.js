@@ -96,6 +96,6 @@ if(discard)discard.addEventListener("click",()=>{trace("verwerfen");
  if(previous){try{previous.onresult=null;previous.onerror=null;previous.onstart=null;previous.onend=null;previous.abort()}catch(e){}}
  button.disabled=true;
  status.textContent="Formular und Mikrofon werden neu gestartet …";
- setTimeout(()=>{window.location.reload()},150);
+ setTimeout(()=>{try{sessionStorage.setItem("popgo-return-to-new","1")}catch(e){}window.top.location.replace("./?voiceRestart=1")},150);
 });
 })();
