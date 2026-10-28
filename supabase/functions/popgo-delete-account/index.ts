@@ -28,11 +28,8 @@ Deno.serve(async request=>{
  const {data:profile,error:profileError}=await admin.from("profiles").select("is_admin").eq("user_id",user.id).maybeSingle();
  if(profileError)return respond({error:"profile_lookup_failed"},500);
  if(profile?.is_admin)return respond({error:"administrator_account_protected"},409);
- // Sender IDs in private broadcasts are NOT NULL / RESTRICT, so refuse deletion
- // if a former admin had sent broadcasts; this needs manual retention handling.
- const blocker=await admin.schema("app_private").from("admin_broadcasts").select("sender_id",{head:true,count:"exact"}).eq("sender_id",user.id);
- if(blocker.error)return respond({error:"retention_check_failed"},500);
- if((blocker.count||0)>0)return respond({error:"broadcast_retention_requires_review"},409);
+ // Former administrators with retained private broadcasts may be blocked by
+ // the database FK RESTRICT. In that case auth deletion returns an error.
  // Nullable historical references must be anonymized before auth user deletion.
  for(const [table,column] of [["suggestions","submitted_by"],["suggestions","reviewed_by"],["audit_events","actor_id"]] as const){
   const {error}=await admin.from(table).update({[column]:null}).eq(column,user.id);
