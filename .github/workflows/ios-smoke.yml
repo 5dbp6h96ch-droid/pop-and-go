@@ -26,10 +26,29 @@ jobs:
       - name: Generate unsigned iOS Xcode project
         working-directory: ios-app
         run: npm run ios:init
+      - name: Verify bundled app assets
+        working-directory: ios-app
+        run: |
+          test -s www/index.html
+          test -s www/app-auth.js
+          test -s www/app.js
+          ! grep -q '/pop-and-go/' www/index.html
       - name: Compile iOS Simulator app without signing
         working-directory: ios-app
         run: |
           xcodebuild -project ios/App/App.xcodeproj -scheme App \
-            -configuration Debug -sdk iphonesimulator \
+            -derivedDataPath build -configuration Debug -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build
+
+      - name: Archive unsigned simulator application
+        working-directory: ios-app
+        run: |
+          test -d build/Build/Products/Debug-iphonesimulator/App.app
+          ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Debug-iphonesimulator/App.app ios-simulator-app.zip
+      - name: Upload simulator build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: raus-und-guggen-ios-simulator
+          path: ios-app/ios-simulator-app.zip
+          retention-days: 7
