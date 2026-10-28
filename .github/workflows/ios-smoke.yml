@@ -26,6 +26,14 @@ jobs:
       - name: Generate unsigned iOS Xcode project
         working-directory: ios-app
         run: npm run ios:init
+      - name: Verify JavaScript syntax and native auth bundle
+        working-directory: ios-app
+        run: |
+          node --check www/app-auth.js
+          node --check www/push-settings.js
+          node --check www/native-push.js
+          node --check www/runtime-diagnostics.js
+          npm run test:bundle
       - name: Verify bundled app assets
         working-directory: ios-app
         run: |
