@@ -56,6 +56,7 @@ jobs:
           node --check www/native-push.js
           node --check www/runtime-diagnostics.js
           node --check www/diagnostics-ui.js
+          node --check www/account-deletion-ui.js
           npm run test:bundle
       - name: Verify bundled app assets
         working-directory: ios-app
@@ -66,6 +67,7 @@ jobs:
           test -s www/native-push.js
           test -s www/runtime-diagnostics.js
           test -s www/diagnostics-ui.js
+          test -s www/account-deletion-ui.js
           grep -q 'src="runtime-diagnostics.js"' www/index.html
           grep -q 'src="native-push.js"' www/index.html
           ! grep -q '/pop-and-go/' www/index.html
