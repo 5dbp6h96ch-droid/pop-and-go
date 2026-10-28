@@ -86,16 +86,5 @@ button.setAttribute("aria-label","Spracherkennung starten oder beenden");
 button.addEventListener("click",()=>{if(phase==="listening")stop();else if(phase==="idle")start()});
 status.textContent=SR?"Einmal tippen und sprechen. Nach einer Sprechpause endet die Aufnahme automatisch.":"Spracherkennung ist hier nicht verfügbar.";
 window.addEventListener("pagehide",()=>{session++;clearTimers();clearTimeout(retryTimer);try{recognition&&recognition.abort()}catch(e){}recognition=null});
-const discard=$("ideaDiscard");
-if(discard)discard.addEventListener("click",()=>{trace("verwerfen");
- // Reload only the embedded suggestion document. The parent app and login stay open.
- // A fresh document creates a new SpeechRecognition owner rather than reusing
- // iOS WebKit's potentially stale recognition session after discard.
- session++;clearTimers();clearTimeout(recoveryTimer);clearTimeout(retryTimer);retryCount=0;
- const previous=recognition;recognition=null;
- if(previous){try{previous.onresult=null;previous.onerror=null;previous.onstart=null;previous.onend=null;previous.abort()}catch(e){}}
- button.disabled=true;
- status.textContent="Formular und Mikrofon werden neu gestartet …";
- setTimeout(()=>{try{sessionStorage.setItem("popgo-return-to-new","1")}catch(e){}window.top.location.replace("./?voiceRestart=1")},150);
-});
+const discard=$("ideaDiscard");if(discard)discard.addEventListener("click",()=>{session++;clearTimers();clearTimeout(retryTimer);const old=recognition;recognition=null;try{old&&old.abort()}catch(e){}setPhase("idle");status.textContent="Bereit für eine neue Idee.";});
 })();
