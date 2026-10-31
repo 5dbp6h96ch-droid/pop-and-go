@@ -33,6 +33,11 @@ function link(url,text,cls){const a=node("a",text,cls);a.href=url;a.target="_bla
 function appleMaps(p){return "https://maps.apple.com/?q="+encodeURIComponent((p.address&&p.address.trim())?p.address:[p.name,p.locality].filter(Boolean).join(", "))}
 function makeCard(p){
  const box=node("article",null,"card");
+ box.tabIndex=0;
+ box.setAttribute("role","button");
+ box.setAttribute("aria-label","Details anzeigen: "+p.name);
+ box.addEventListener("click",event=>{if(event.target.closest("a,button"))return;openPlaceDetails(p)});
+ box.addEventListener("keydown",event=>{if(event.target!==box)return;if(event.key==="Enter"||event.key===" "){event.preventDefault();openPlaceDetails(p)}});
  const top=node("div",null,"card-top");
  const icon=node("span",null,"card-symbol");icon.setAttribute("aria-hidden","true");
  const paths={Restaurant:'<path d="M4 3v7a3 3 0 0 0 6 0V3M7 3v18M17 3v18M17 3c-4 4-4 9 0 11"/>',Café:'<path d="M4 8h13v6a6 6 0 0 1-6 6h-1a6 6 0 0 1-6-6V8ZM17 9h2a3 3 0 0 1 0 6h-2M7 3v2M12 3v2"/>',Biergarten:'<path d="M12 21V11M12 11c-5 0-8-3-8-8 5 0 8 3 8 8ZM12 15c5 0 8-3 8-8-5 0-8 3-8 8ZM7 21h10"/>',Aktivität:'<path d="m3 20 7-13 4 7 3-5 4 11H3ZM16 3v4M14 5h4"/>',Beachbar:'<path d="m4 4 8 8 8-8H4ZM12 12v8M7 20h10M17 8l3 3M20 8l-3 3"/>',Weinlounge:'<path d="M5 3h14v5a7 7 0 0 1-14 0V3ZM12 15v6M7 21h10M6 8h12"/>'};
@@ -83,10 +88,14 @@ $("navNew").click();
 
 $("surpriseClose").onclick=()=>$("surpriseDialog").close();$("surpriseDialog").addEventListener("click",e=>{if(e.target===$("surpriseDialog"))$("surpriseDialog").close()});
 $("startDiscover").onclick=()=>document.querySelector('[data-view="discover"]')?.click();
+function openPlaceDetails(p){
+ if(!p)return;
+ const dialog=$("surpriseDialog"),details=$("surpriseDetails");details.replaceChildren();const symbols={"Kategorie":"◇","Ort":"⌖","Adresse":"▤","Beschreibung":"☷"};const add=(label,value)=>{if(value==null||!String(value).trim())return;const wrap=node("div",null,"surprise-detail");const icon=node("span",symbols[label]||"•","surprise-detail-icon");icon.setAttribute("aria-hidden","true");const content=node("div");content.append(node("strong",label),node("p",String(value)));wrap.append(icon,content);details.append(wrap)};add("Kategorie",p.categories?.label);add("Ort",p.locality);add("Adresse",p.address);add("Beschreibung",p.notes);$("surpriseCategoryIcon").textContent=/restaurant|essen|gastronomie|café|cafe/i.test(p.categories?.label||"")?"♧":"✦";const links=node("div",null,"surprise-links");links.append(link(appleMaps(p),"In Apple Karten öffnen","external-link"));if(p.website_url&&/^https:\/\//i.test(p.website_url))links.append(link(p.website_url,"Website öffnen","external-link"));details.append(links);$("surpriseTitle").textContent=p.name;if(typeof dialog.showModal==="function")dialog.showModal();else dialog.setAttribute("open","");
+}
 $("random").onclick=()=>{
  const results=places;
  if(!results.length){$("randomResult").textContent="Noch keine Freizeitideen geladen.";return}
- const p=results[Math.floor(Math.random()*results.length)];
- const dialog=$("surpriseDialog"),details=$("surpriseDetails");details.replaceChildren();const symbols={"Kategorie":"◇","Ort":"⌖","Adresse":"▤","Beschreibung":"☷"};const add=(label,value)=>{if(value==null||!String(value).trim())return;const wrap=node("div",null,"surprise-detail");const icon=node("span",symbols[label]||"•","surprise-detail-icon");icon.setAttribute("aria-hidden","true");const content=node("div");content.append(node("strong",label),node("p",String(value)));wrap.append(icon,content);details.append(wrap)};add("Kategorie",p.categories?.label);add("Ort",p.locality);add("Adresse",p.address);add("Beschreibung",p.notes);$("surpriseCategoryIcon").textContent=/restaurant|essen|gastronomie|café|cafe/i.test(p.categories?.label||"")?"♧":"✦";const links=node("div",null,"surprise-links");links.append(link(appleMaps(p),"In Apple Karten öffnen","external-link"));if(p.website_url&&/^https:\/\//i.test(p.website_url))links.append(link(p.website_url,"Website öffnen","external-link"));details.append(links);$("surpriseTitle").textContent=p.name;$("randomResult").textContent="";if(typeof dialog.showModal==="function")dialog.showModal();else dialog.setAttribute("open","");
+ openPlaceDetails(results[Math.floor(Math.random()*results.length)]);
+ $("randomResult").textContent="";
 };
 (async()=>{try{const headers={apikey:KEY,Accept:"application/json"};const [p,c]=await Promise.all([fetch(API+"/rest/v1/places?select=id,name,locality,address,notes,website_url,latitude,longitude,categories(label)&status=eq.published&order=name.asc",{headers}),fetch(API+"/rest/v1/categories?select=id,label&order=label.asc",{headers})]);if(!p.ok||!c.ok)throw Error("Supabase "+p.status+"/"+c.status);places=await p.json();categories=await c.json();const towns=[...new Set(places.map(x=>x.locality).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"de"));for(const town of towns){const option=node("option",town);option.value=town;$("localityFilter").append(option)}render()}catch(error){$("status").textContent="Freizeitideen konnten nicht geladen werden: "+error.message}})();
