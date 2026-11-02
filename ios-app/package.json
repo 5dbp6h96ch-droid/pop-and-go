@@ -1,0 +1,22 @@
+{
+  "name": "raus-und-guggen-ios",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare:web": "node scripts/prepare-web.mjs",
+    "ios:init": "npm run prepare:web && npx cap add ios",
+    "ios:sync": "npm run prepare:web && npx cap sync ios",
+    "test:bundle": "node scripts/test-native-bundle.mjs",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@capacitor/push-notifications": "^8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
+    "@playwright/test": "^1.56.0"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "appId": "de.rausundguggen.app",
+  "appName": "raus & guggen",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "ios": {
+    "contentInset": "automatic"
+  }
+}
